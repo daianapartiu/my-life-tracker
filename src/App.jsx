@@ -691,11 +691,22 @@ function FinancialsTab({investments,onUpdate}){
   const projected=Math.round(currentFV+futureFV);
   const pct=Math.min((projected/GOAL)*100,100);
   const thisWeek=new Date().toISOString().slice(0,10);
+  
+  // ── annual investment calculation ──
+  const annualInvestment=Object.values(investments).reduce((s,b,i)=>{
+    const target=b.target||0;
+    const freq=BUCKETS[i].freq;
+    return s+(freq==="bi-weekly"?target*26:target*52);
+  },0);
 
   // ── net worth calc ──
   const totalNetWorth=parseFloat((netWorth||"").toString().replace(/,/g,""))||0;
   const nwToGoal=Math.min((totalNetWorth/GOAL)*100,100);
   const saveNetWorth=()=>{setNetWorth(netWorthInput);setNetWorthEdit(false);};
+  
+  // ── age 45 projection calculation ──
+  const totalNetWorthFV=totalNetWorth*Math.pow(1+RATE,YEARS);
+  const projectedAt45=Math.round(totalNetWorthFV+projected);
 
   const bucket=active?investments[active]:null;
   const thisEntry=bucket?.contributions.find(c=>c.week===thisWeek);
@@ -753,6 +764,20 @@ function FinancialsTab({investments,onUpdate}){
       {/* ── OVERVIEW ── */}
       {finTab==="overview"&&(
         <div className="space-y-4">
+          {/* Annual investment & projections */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-3">
+              <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Annual Investment</p>
+              <p className="text-2xl font-bold text-rose-300">${annualInvestment.toLocaleString()}</p>
+              <p className="text-xs text-slate-600 mt-1">per year</p>
+            </div>
+            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-3">
+              <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Current Net Worth</p>
+              <p className="text-2xl font-bold text-emerald-300">${totalNetWorth.toLocaleString()}</p>
+              <p className="text-xs text-slate-600 mt-1">{totalNetWorth>0?`${(totalNetWorth/GOAL*100).toFixed(1)}% of goal`:""}</p>
+            </div>
+          </div>
+
           {/* Goal card */}
           <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700 rounded-2xl p-4 space-y-3">
             <div className="flex justify-between items-start">
@@ -775,6 +800,24 @@ function FinancialsTab({investments,onUpdate}){
             </div>
             <p className="text-xs text-slate-500 text-center">6% annual return · All buckets combined</p>
           </div>
+
+          {/* Projected value at age 45 */}
+          {(totalNetWorth>0||projected>0)&&(
+            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-2">
+              <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Projected at Age 45</p>
+              <p className="text-3xl font-bold text-white">${(projectedAt45/1e6).toFixed(2)}M</p>
+              <div className="text-xs text-slate-500 space-y-1 pt-1 border-t border-slate-700">
+                <div className="flex justify-between">
+                  <span>Current net worth growing:</span>
+                  <span className="text-slate-300">${(totalNetWorthFV/1e6).toFixed(2)}M</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>New contributions:</span>
+                  <span className="text-slate-300">${(projected/1e6).toFixed(2)}M</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Net worth snapshot */}
           {totalNetWorth>0?(
