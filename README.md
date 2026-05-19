@@ -1,4 +1,4 @@
-# My Life Workspace
+# Daia's Life Tracker
 
 ## Deploy to Vercel (5 minutes, free)
 
@@ -7,7 +7,7 @@ Go to github.com and sign up free.
 
 ### Step 2 — Upload this folder to GitHub
 1. Go to github.com/new
-2. Name it `my-life-workspace`, click "Create repository"
+2. Name it `daia-life-tracker`, click "Create repository"
 3. Click "uploading an existing file"
 4. Drag and drop ALL files from this folder (keep the folder structure)
 5. Click "Commit changes"
@@ -15,9 +15,9 @@ Go to github.com and sign up free.
 ### Step 3 — Deploy to Vercel
 1. Go to vercel.com and sign up with your GitHub account
 2. Click "Add New Project"
-3. Select your `my-life-workspace` repository
+3. Select your `daia-life-tracker` repository
 4. Click "Deploy" — Vercel auto-detects Vite ✓
-5. Done! You get a URL like: https://my-life-workspace.vercel.app
+5. Done! You get a URL like: https://daia-life-tracker.vercel.app
 
 ### Step 4 — Add to your phone home screen
 - iPhone: Open your Vercel URL in Safari → Share → "Add to Home Screen"

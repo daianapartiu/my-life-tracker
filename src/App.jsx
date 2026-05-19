@@ -251,13 +251,13 @@ const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunda
 const ROUTINE={Monday:["6:00 Wake + skincare","6:10 Water plants","6:20 30 min walk","7:00 Breakfast","7:15 Feed starter (2:1:1)","7:25 Read 30 min","8:00 Laundry #1 + clean kitchen","9:00 Work / WFH","5:00 Fold laundry","5:20 Drive to gym","6:00 Gym class","6:45 Drive home","7:00 Dinner w/ husband","8:00 Wind down + skincare","8:30 Read 30 min","9:30 Sleep"],Tuesday:["6:00 Wake + skincare","6:10 Water plants","6:20 30 min walk","7:00 Breakfast + pack up","7:25 Commute (35 min)","9:00 At office","5:20 Drive to gym","6:00 Gym class","6:45 Drive home","7:00 Dinner w/ husband","8:00 Wind down + skincare","8:30 Read 30 min","9:30 Sleep"],Wednesday:["6:00 Wake + skincare","6:10 Water plants","6:20 30 min walk","7:00 Breakfast","7:15 Feed starter (2:1:1)","7:25 Read 30 min","8:00 Laundry #2 + clean master bath","9:00 Work / WFH","5:00 Rest day","6:00 Cook dinner","7:00 Dinner w/ husband","8:00 Wind down + skincare","8:30 Read 30 min","9:30 Sleep"],Thursday:["6:00 Wake + skincare","6:10 Water plants","6:20 30 min walk","7:00 Breakfast","7:15 Feed starter","7:25 Read 30 min","8:00 Laundry #3 + clean guest bath","9:00 Work / WFH","5:00 Fold laundry","5:20 Drive to gym","6:00 Gym class","6:45 Drive home","7:00 Dinner w/ husband","8:00 Wind down + skincare","8:30 Read 30 min","9:30 Sleep"],Friday:["6:00 Wake + skincare","6:10 Water plants","6:20 30 min walk","7:00 Breakfast","7:15 Feed starter","7:25 Read 30 min","8:00 Laundry #4 + vacuum/mop","9:00 Work / WFH + bed/duvet load","5:00 Start colorful load","5:20 Drive to gym","6:00 Gym class","6:45 Drive home","7:00 Dinner w/ husband","8:00 Wind down + skincare","8:30 Read 30 min","9:30 Sleep"],Saturday:["6:00 Wake + skincare","6:10 Water plants","6:20 30 min walk","7:00 Breakfast","7:15 Feed starter","7:25 Read 30 min","8:00 Free time","5:20 Drive to gym","6:00 Gym class","6:30 Fold colorful load","7:00 Dinner w/ husband","8:00 Wind down + skincare","8:30 Read 30 min","9:30 Sleep"],Sunday:["6:00 Wake + skincare","6:10 Water plants","6:20 30 min walk","7:00 Breakfast","7:15 Feed starter","7:25 Read 30 min","8:00 Free time","5:00 Rest day","6:00 Cook dinner","7:00 Dinner w/ husband","8:00 Wind down + skincare","8:30 Read 30 min","9:30 Sleep"]};
 
 const DEFAULT_MEAL_PLAN={
-  Monday:{meal:"Sheet pan chicken thighs + roasted veggies",note:"Makes 2 servings — leftovers Tuesday",carries:true},
-  Tuesday:{meal:"Leftover chicken 🍗",note:"From Monday",isLeftover:true},
-  Wednesday:{meal:"Pasta e fagioli (big batch)",note:"Cook tonight — leftovers Thursday",carries:true},
-  Thursday:{meal:"Leftover pasta e fagioli 🫘",note:"From Wednesday",isLeftover:true},
-  Friday:{meal:"Salmon + quinoa + cucumber salad",note:"Fresh, quick 30-min meal",carries:false},
-  Saturday:{meal:"Slow cooker pulled pork tacos",note:"Set in morning",carries:true},
-  Sunday:{meal:"Leftover tacos 🌮 + prep for week",note:"Sunday cook: prep ahead",carries:false},
+  Monday:{breakfast:{name:"Oatmeal with banana",ingredients:["oatmeal (1/2 cup dry)","banana (1 medium)"]},lunch:{name:"Chicken & quinoa salad",ingredients:["chicken breast (100g)","quinoa (1/2 cup cooked)","spinach (1 cup raw)","bell pepper (1 medium)","olive oil (1 tbsp)"]},dinner:{name:"Sheet pan chicken thighs + roasted veggies",ingredients:["chicken breast (100g)","broccoli (1 cup)","zucchini (1 cup)","olive oil (1 tbsp)"],carries:true}},
+  Tuesday:{breakfast:{name:"Eggs on toast",ingredients:["egg (1 large)","egg (1 large)","whole wheat bread (1 slice)","butter (1 tbsp)"]},lunch:{name:"Leftover chicken & quinoa",ingredients:["chicken breast (100g)","quinoa (1/2 cup cooked)"]},dinner:{name:"Salmon + quinoa",ingredients:["salmon (100g)","quinoa (1/2 cup cooked)","spinach (1 cup raw)"]}},
+  Wednesday:{breakfast:{name:"Greek yogurt parfait",ingredients:["Greek yogurt (100g)","honey (1 tbsp)","banana (1 medium)"]},lunch:{name:"Pasta e fagioli",ingredients:["pasta (1 cup cooked)","spinach (1 cup raw)","sweet potato (1 medium)"]},dinner:{name:"Pasta e fagioli (big batch)",ingredients:["pasta (1 cup cooked)","spinach (1 cup raw)","sweet potato (1 medium)","olive oil (1 tbsp)"],carries:true}},
+  Thursday:{breakfast:{name:"Oatmeal",ingredients:["oatmeal (1/2 cup dry)","apple (1 medium)"]},lunch:{name:"Leftover pasta",ingredients:["pasta (1 cup cooked)","spinach (1 cup raw)"]},dinner:{name:"Leftover pasta e fagioli",ingredients:["pasta (1 cup cooked)","spinach (1 cup raw)","sweet potato (1 medium)"]}},
+  Friday:{breakfast:{name:"Toast with peanut butter",ingredients:["whole wheat bread (1 slice)","peanut butter (2 tbsp)","banana (1 medium)"]},lunch:{name:"Tuna wrap",ingredients:["salmon (100g)","bell pepper (1 medium)"]},dinner:{name:"Salmon + cucumber salad",ingredients:["salmon (100g)","spinach (1 cup raw)","olive oil (1 tbsp)"]}},
+  Saturday:{breakfast:{name:"Eggs & toast",ingredients:["egg (1 large)","egg (1 large)","whole wheat bread (1 slice)"]},lunch:{name:"Salad with chicken",ingredients:["chicken breast (100g)","spinach (1 cup raw)","apple (1 medium)"]},dinner:{name:"Slow cooker pulled pork tacos",ingredients:["chicken breast (100g)","bell pepper (1 medium)","spinach (1 cup raw)"],carries:true}},
+  Sunday:{breakfast:{name:"Oatmeal & berries",ingredients:["oatmeal (1/2 cup dry)","apple (1 medium)"]},lunch:{name:"Leftover from Saturday",ingredients:["chicken breast (100g)"]},dinner:{name:"Prep for week",ingredients:[]}},
 };
 
 const SUNLIGHT_OPT=["Full Sun (6+ hrs)","Partial Sun (3-6 hrs)","Indirect Bright","Low Light"];
@@ -274,6 +274,44 @@ const DEFAULT_HABITS=[
 
 const HABIT_COLORS={sky:"bg-sky-500",emerald:"bg-emerald-500",amber:"bg-amber-500",pink:"bg-pink-500",violet:"bg-violet-500",rose:"bg-rose-500"};
 const HABIT_BORDERS={sky:"border-sky-500/40 text-sky-300",emerald:"border-emerald-500/40 text-emerald-300",amber:"border-amber-500/40 text-amber-300",pink:"border-pink-500/40 text-pink-300",violet:"border-violet-500/40 text-violet-300",rose:"border-rose-500/40 text-rose-300"};
+
+// ── NUTRITION DATABASE ────────────────────────────────────────────────────────
+const NUTRITION_DB={
+  // Proteins
+  "chicken breast (100g)":{cal:165,protein:31,sugar:0,sodium:74,fiber:0},
+  "salmon (100g)":{cal:206,protein:22,sugar:0,sodium:75,fiber:0},
+  "egg (1 large)":{cal:72,protein:6,sugar:0.6,sodium:71,fiber:0},
+  "Greek yogurt (100g)":{cal:59,protein:10,sugar:3.3,sodium:75,fiber:0},
+  // Grains & Carbs
+  "whole wheat bread (1 slice)":{cal:80,protein:4,sugar:1,sodium:170,fiber:3.6},
+  "oatmeal (1/2 cup dry)":{cal:150,protein:5,sugar:1,sodium:2,fiber:8},
+  "rice (1/2 cup cooked)":{cal:103,protein:2.2,sugar:0,sodium:2,fiber:0.4},
+  "pasta (1 cup cooked)":{cal:221,protein:8.1,sugar:1.1,sodium:1,fiber:1.8},
+  "quinoa (1/2 cup cooked)":{cal:111,protein:4,sugar:0.2,sodium:8,fiber:1.6},
+  // Veggies
+  "broccoli (1 cup)":{cal:31,protein:3.7,sugar:2.2,sodium:64,fiber:2.4},
+  "spinach (1 cup raw)":{cal:7,protein:0.9,sugar:0.1,sodium:24,fiber:0.7},
+  "bell pepper (1 medium)":{cal:30,protein:1,sugar:4.7,sodium:3,fiber:1.7},
+  "zucchini (1 cup)":{cal:21,protein:1.5,sugar:3.5,sodium:20,fiber:1.1},
+  "sweet potato (1 medium)":{cal:103,protein:2,sugar:4.7,sodium:55,fiber:3.9},
+  "banana (1 medium)":{cal:105,protein:1.3,sugar:14.4,sodium:1,fiber:2.6},
+  "apple (1 medium)":{cal:95,protein:0.5,sugar:25.1,sodium:2,fiber:4.4},
+  // Fats & Oils
+  "olive oil (1 tbsp)":{cal:119,protein:0,sugar:0,sodium:0,fiber:0},
+  "butter (1 tbsp)":{cal:102,protein:0.1,sugar:0,sodium:91,fiber:0},
+  // Sauces & Condiments
+  "honey (1 tbsp)":{cal:64,protein:0,sugar:17,sodium:2,fiber:0},
+  "peanut butter (2 tbsp)":{cal:188,protein:8,sugar:7,sodium:147,fiber:3.5},
+};
+
+const calculateNutrition=(ingredients)=>{
+  const totals={cal:0,protein:0,sugar:0,sodium:0,fiber:0};
+  ingredients.forEach(ing=>{
+    const data=NUTRITION_DB[ing.toLowerCase()]||{cal:0,protein:0,sugar:0,sodium:0,fiber:0};
+    totals.cal+=data.cal;totals.protein+=data.protein;totals.sugar+=data.sugar;totals.sodium+=data.sodium;totals.fiber+=data.fiber;
+  });
+  return totals;
+};
 
 const DEFAULT_DATA={
   plants:[{id:1,name:"English Ivy",sunlight:"Indirect Bright",watering:"Weekly",notes:"Keep from direct AZ sun. Watch spider mites.",photo:null,lastWatered:null}],
@@ -423,63 +461,26 @@ function CalendarTab(){
 // ── MEALS + GROCERY TAB ───────────────────────────────────────────────────────
 function MealsTab({mealPlan,groceryList,onMealUpdate,onGroceryUpdate}){
   const[view,setView]=useState("meals");
-  const[editing,setEditing]=useState(null);
-  const[ev,setEv]=useState({meal:"",note:"",carries:false});
+  const[editDay,setEditDay]=useState(null);
+  const[editMealType,setEditMealType]=useState(null);
+  const[editIngredient,setEditIngredient]=useState("");
   const[newItem,setNewItem]=useState("");
-  const[genLoading,setGenLoading]=useState(false);
   const today=new Date().toLocaleDateString("en-US",{weekday:"long"});
 
-  const startEdit=d=>{setEditing(d);setEv({meal:mealPlan[d]?.meal||"",note:mealPlan[d]?.note||"",carries:mealPlan[d]?.carries||false});};
-  const saveEdit=()=>{if(!ev.meal.trim())return;onMealUpdate({...mealPlan,[editing]:{...ev}});setEditing(null);};
-
-  // Generate grocery list from meal plan
-  const generateGrocery=async()=>{
-    setGenLoading(true);
-    // First try built-in mapping
-    const known=new Set();
-    const items=[];
-    Object.values(mealPlan).forEach(m=>{
-      const ingredients=MEAL_GROCERIES[m.meal]||[];
-      ingredients.forEach(ing=>{
-        if(!known.has(ing)){known.add(ing);items.push({id:Date.now()+Math.random(),text:ing,checked:false,source:"auto"});}
-      });
-    });
-
-    if(items.length>0){
-      // Also use Claude to augment for any custom meals not in our map
-      const customMeals=Object.values(mealPlan).map(m=>m.meal).filter(m=>!MEAL_GROCERIES[m]&&!m.startsWith("Leftover"));
-      if(customMeals.length>0){
-        try{
-          const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,
-            system:"You generate grocery lists. Return ONLY a JSON array of ingredient strings. No markdown, no other text. No duplicates. Common pantry items like salt, pepper, olive oil can be omitted.",
-            messages:[{role:"user",content:`Generate a grocery list for these meals: ${customMeals.join(", ")}. Return as JSON array of strings.`}]})});
-          const d=await r.json();const txt=d.content.filter(b=>b.type==="text").map(b=>b.text).join("");
-          const match=txt.match(/\[[\s\S]*?\]/);
-          if(match){const extra=JSON.parse(match[0]);extra.forEach(ing=>{if(!known.has(ing)){known.add(ing);items.push({id:Date.now()+Math.random(),text:ing,checked:false,source:"auto"});}});}
-        }catch{}
-      }
-      onGroceryUpdate(items);
-    } else {
-      // All custom meals — use Claude
-      try{
-        const meals=Object.values(mealPlan).filter(m=>!m.isLeftover).map(m=>m.meal).join(", ");
-        const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,
-          system:"Generate a grocery list. Return ONLY a JSON array of ingredient strings. No markdown. No duplicates. Omit common pantry staples like salt, pepper, olive oil.",
-          messages:[{role:"user",content:`Weekly meals: ${meals}. Generate complete grocery list as JSON array.`}]})});
-        const d=await r.json();const txt=d.content.filter(b=>b.type==="text").map(b=>b.text).join("");
-        const match=txt.match(/\[[\s\S]*?\]/);
-        if(match){const arr=JSON.parse(match[0]);onGroceryUpdate(arr.map((ing,i)=>({id:Date.now()+i,text:ing,checked:false,source:"auto"})));}
-      }catch{}
-    }
-    setGenLoading(false);
+  const saveMeal=(day,type,name,ingredients)=>{
+    onMealUpdate({...mealPlan,[day]:{...mealPlan[day],[type]:{name,ingredients}}});
+    setEditDay(null);setEditMealType(null);
   };
-
-  const toggleItem=id=>onGroceryUpdate(groceryList.map(i=>i.id===id?{...i,checked:!i.checked}:i));
-  const removeItem=id=>onGroceryUpdate(groceryList.filter(i=>i.id!==id));
-  const addItem=()=>{if(newItem.trim()){onGroceryUpdate([...groceryList,{id:Date.now(),text:newItem.trim(),checked:false,source:"manual"}]);setNewItem("");}};
-  const clearChecked=()=>onGroceryUpdate(groceryList.filter(i=>!i.checked));
-  const unchecked=groceryList.filter(i=>!i.checked);
-  const checked=groceryList.filter(i=>i.checked);
+  const addIngredient=(day,type,newIng)=>{
+    if(!newIng.trim())return;
+    const meal=mealPlan[day][type];
+    saveMeal(day,type,meal.name,[...meal.ingredients,newIng.trim()]);
+    setEditIngredient("");
+  };
+  const removeIngredient=(day,type,ing)=>{
+    const meal=mealPlan[day][type];
+    saveMeal(day,type,meal.name,meal.ingredients.filter(i=>i!==ing));
+  };
 
   return(
     <div className="space-y-5">
@@ -487,38 +488,51 @@ function MealsTab({mealPlan,groceryList,onMealUpdate,onGroceryUpdate}){
 
       {/* Sub-tabs */}
       <div className="flex gap-1">
-        {[["meals","🍽️ Meal Plan"],["grocery","🛒 Grocery List"]].map(([t,l])=>(
+        {[["meals","🍽️ Daily Meals"],["grocery","🛒 Grocery List"]].map(([t,l])=>(
           <button key={t} onClick={()=>setView(t)} className={`flex-1 py-2 text-xs rounded-xl border transition-all ${view===t?"bg-amber-500/20 border-amber-500/40 text-amber-300 font-semibold":"border-slate-700 text-slate-500 hover:text-slate-300"}`}>{l}</button>
         ))}
       </div>
 
       {view==="meals"&&(
-        <div className="space-y-2">
+        <div className="space-y-4">
           {DAYS.map(day=>{
-            const m=mealPlan[day];const isToday=day===today;
-            return editing===day?(
-              <div key={day} className="border border-rose-500/30 rounded-2xl p-4 bg-slate-800/60 space-y-3">
-                <p className="text-sm font-semibold text-slate-200">{day}</p>
-                <input value={ev.meal} onChange={e=>setEv(v=>({...v,meal:e.target.value}))} placeholder="Meal…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/>
-                <input value={ev.note} onChange={e=>setEv(v=>({...v,note:e.target.value}))} placeholder="Note (e.g. 'leftovers next day')…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300 placeholder-slate-600 focus:outline-none"/>
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-400"><input type="checkbox" checked={ev.carries} onChange={e=>setEv(v=>({...v,carries:e.target.checked}))} className="rounded"/>Carries over to next day</label>
-                <div className="flex gap-2">
-                  <button onClick={saveEdit} className="flex-1 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-xl text-sm font-semibold">Save</button>
-                  <button onClick={()=>setEditing(null)} className="px-4 py-2 bg-slate-700 border border-slate-600 text-slate-400 rounded-xl text-sm">Cancel</button>
-                </div>
+            const dayMeals=mealPlan[day];const isToday=day===today;
+            return(
+              <div key={day} className={`rounded-2xl border p-4 ${isToday?"bg-amber-500/10 border-amber-500/30":"bg-slate-800/30 border-slate-700"}`}>
+                <p className={`text-sm font-bold mb-3 ${isToday?"text-amber-300":"text-slate-200"}`}>{day}{isToday?" (today)":""}</p>
+                {["breakfast","lunch","dinner"].map(mealType=>{
+                  const meal=dayMeals[mealType];
+                  const nutrition=calculateNutrition(meal.ingredients);
+                  const servings=meal.ingredients.length||1;
+                  return(
+                    <div key={mealType} className="mb-3 last:mb-0 border border-slate-700 rounded-xl p-3 bg-slate-900/40">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-bold uppercase text-slate-400">{mealType}</p>
+                        <button onClick={()=>{setEditDay(day);setEditMealType(mealType);}} className="text-xs text-slate-500 hover:text-slate-300">✎ Edit</button>
+                      </div>
+                      <p className="text-sm font-semibold text-slate-100 mb-2">{meal.name}</p>
+                      
+                      {/* Ingredients */}
+                      <div className="mb-2 text-xs space-y-1">
+                        {meal.ingredients.map((ing,i)=>(
+                          <div key={i} className="flex items-center gap-2 text-slate-500">
+                            <span>•</span><span>{ing}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Nutrition */}
+                      <div className="border-t border-slate-700 pt-2 mt-2 grid grid-cols-5 gap-1 text-xs">
+                        <div><p className="text-slate-500">Calories</p><p className="font-bold text-amber-300">{Math.round(nutrition.cal)}</p></div>
+                        <div><p className="text-slate-500">Protein</p><p className="font-bold text-rose-300">{nutrition.protein.toFixed(1)}g</p></div>
+                        <div><p className="text-slate-500">Sugar</p><p className="font-bold text-pink-300">{nutrition.sugar.toFixed(1)}g</p></div>
+                        <div><p className="text-slate-500">Sodium</p><p className="font-bold text-sky-300">{Math.round(nutrition.sodium)}mg</p></div>
+                        <div><p className="text-slate-500">Fiber</p><p className="font-bold text-green-300">{nutrition.fiber.toFixed(1)}g</p></div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ):(
-              <button key={day} onClick={()=>startEdit(day)} className={`w-full flex items-start gap-3 px-4 py-3 rounded-2xl border text-left transition-all hover:border-amber-400/40 ${isToday?"border-amber-500/40 bg-amber-500/10":"border-slate-700 bg-slate-800/30"}`}>
-                <div className="flex-shrink-0 mt-0.5 w-8">
-                  <p className={`text-xs font-bold uppercase ${isToday?"text-amber-400":"text-slate-500"}`}>{day.slice(0,3)}</p>
-                  {isToday&&<p className="text-xs text-amber-500/70">today</p>}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium leading-tight ${m?.isLeftover?"text-slate-400 italic":"text-slate-200"}`}>{m?.meal||"Tap to add…"}</p>
-                  {m?.note&&<p className="text-xs text-slate-500 mt-0.5">{m.note}</p>}
-                </div>
-                {m?.carries&&<span className="text-xs bg-amber-900/40 text-amber-400 border border-amber-700/40 px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5">+1</span>}
-              </button>
             );
           })}
         </div>
@@ -526,25 +540,38 @@ function MealsTab({mealPlan,groceryList,onMealUpdate,onGroceryUpdate}){
 
       {view==="grocery"&&(
         <div className="space-y-4">
-          {/* Generate button */}
-          <button onClick={generateGrocery} disabled={genLoading}
-            className="w-full py-3 bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-50 border border-amber-500/40 text-amber-300 rounded-2xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-            <span style={genLoading?{animation:"spin 0.8s linear infinite",display:"inline-block"}:{}}>{genLoading?"⟳":"✨"}</span>
-            {genLoading?"Generating from your meal plan…":"Auto-generate from this week's meals"}
+          {/* Auto-generate from meals */}
+          <button className="w-full py-3 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-2xl text-sm font-semibold transition-colors">
+            ✨ Generate from this week's meals (coming soon)
           </button>
 
           {/* Add manual item */}
           <div className="flex gap-2">
-            <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addItem()} placeholder="Add item manually…"
+            <input value={newItem} onChange={e=>setNewItem(e.target.value)} placeholder="Add item manually…"
               className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-400/50"/>
-            <button onClick={addItem} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 rounded-xl text-sm font-bold">+</button>
+            <button onClick={()=>{if(newItem.trim()){onGroceryUpdate([...groceryList,{id:Date.now(),text:newItem.trim(),checked:false,source:"manual"}]);setNewItem("");}}} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 rounded-xl text-sm font-bold">+</button>
           </div>
 
-          {/* Stats */}
+          {/* Grocery list */}
           {groceryList.length>0&&(
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-500">{unchecked.length} items remaining · {checked.length} got</p>
-              {checked.length>0&&<button onClick={clearChecked} className="text-xs text-slate-600 hover:text-rose-400 transition-colors">Clear got ✕</button>}
+            <div className="space-y-2">
+              {groceryList.filter(i=>!i.checked).map(item=>(
+                <div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/30 group">
+                  <button onClick={()=>onGroceryUpdate(groceryList.map(i=>i.id===item.id?{...i,checked:!i.checked}:i))} className="w-4 h-4 border-2 border-slate-600 rounded flex-shrink-0 hover:border-slate-400"/>
+                  <span className="flex-1 text-sm text-slate-300">{item.text}</span>
+                  <button onClick={()=>onGroceryUpdate(groceryList.filter(i=>i.id!==item.id))} className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-rose-400 text-lg">×</button>
+                </div>
+              ))}
+              {groceryList.filter(i=>i.checked).length>0&&(
+                <div className="space-y-1 opacity-50 pt-2 border-t border-slate-700">
+                  {groceryList.filter(i=>i.checked).map(item=>(
+                    <div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-800 bg-slate-800/20">
+                      <span className="w-4 h-4 bg-emerald-500 rounded flex-shrink-0 flex items-center justify-center"><svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg></span>
+                      <span className="flex-1 text-sm text-slate-500 line-through">{item.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1198,7 +1225,7 @@ export default function App(){
       <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur border-b border-slate-800/80">
         <div className="max-w-2xl mx-auto px-4 pt-4 pb-0">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-baseline gap-2"><h1 className="text-xl font-bold">My Life</h1><span className="text-slate-600 text-xs tracking-widest uppercase">workspace</span></div>
+            <div className="flex items-baseline gap-2"><h1 className="text-xl font-bold">Daia's Life Tracker</h1></div>
             <SaveBadge status={saveStatus}/>
           </div>
           <div className="flex gap-0.5 overflow-x-auto scrollbar-hide">
