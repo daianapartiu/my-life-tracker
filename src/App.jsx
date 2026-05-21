@@ -10,6 +10,7 @@ const TABS = [
   { id: "financials", label: "💰 Finance" },
   { id: "travels", label: "✈️ Travels" },
   { id: "plants", label: "🌿 Plants & Garden" },
+  { id: "routine", label: "🧘 Routine" },
   { id: "cooking", label: "🍳 Meals" },
   { id: "grocery", label: "🛒 Grocery" },
   { id: "pregnancy", label: "🤰 Baby" },
@@ -72,6 +73,7 @@ const MEAL_GROCERIES = {
 
 // Pantry staples always needed
 const PANTRY_STAPLES = ["salt & pepper", "olive oil", "garlic", "onions"];
+const PACKING_CATEGORIES = ["attire","electronics","misc","toiletries","backpack","makeup"];
 
 const DEFAULT_WEEKLY_GROCERY_LIST = [
   { id: 1, text: "Milk", checked: false },
@@ -336,7 +338,7 @@ const DEFAULT_DATA={
   babyBuyList:BABY_BUY_LIST,
   tripTodos:TRIPS.map(t=>t.todos.map((text,i)=>({id:i,text,done:false}))),
   tripDates:TRIPS.map(t=>({name:t.name,start:t.start,end:t.end})),
-  tripPacking:TRIPS.map((t,ti)=>t.packing.map((item,i)=>({id:`${ti}-${i}`,text:item,checked:false}))),
+  tripPacking:TRIPS.map((t,ti)=>t.packing.map((item,i)=>({id:`${ti}-${i}`,text:item,checked:false,category:"misc"}))),
   standardPackingList: [],
   routineChecked:{},workouts:[],
   majorTodos:[],
@@ -548,6 +550,28 @@ function MealsTab({mealPlan,groceryList,onMealUpdate,onGroceryUpdate}){
 
       {view==="meals" && (
         <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/40 p-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-slate-500 font-semibold">Weekly overview</p>
+                <p className="text-xs text-slate-400">See breakfast, lunch, and dinner for every day at a glance.</p>
+              </div>
+              <span className="text-xs text-slate-500">{DAYS.length} days</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {DAYS.map(day=>{
+                const dayMeals=mealPlan[day]||{};
+                return (
+                  <div key={day} className="rounded-2xl border border-slate-700 bg-slate-800/50 p-3">
+                    <p className="text-sm font-semibold text-slate-100 mb-2">{day}</p>
+                    <p className="text-xs text-slate-400"><span className="font-semibold text-slate-200">B:</span> {dayMeals.breakfast?.name||"No plan"}</p>
+                    <p className="text-xs text-slate-400"><span className="font-semibold text-slate-200">L:</span> {dayMeals.lunch?.name||"No plan"}</p>
+                    <p className="text-xs text-slate-400"><span className="font-semibold text-slate-200">D:</span> {dayMeals.dinner?.name||"No plan"}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           {DAYS.map(day=>{
             const dayMeals=mealPlan[day]||{};
             const isToday=day===new Date().toLocaleDateString("en-US",{weekday:"long"});
@@ -736,6 +760,10 @@ function DashboardTab({appData,onUpdate}){
   const[newMajorTask,setNewMajorTask]=useState("");
 
   const homeTodos=appData.majorTodos||[];
+  const routineTasks=(ROUTINE[dayName]||[]).map((task,idx)=>{const [time,...rest]=task.split(" ");return({id:`routine-${idx}`,idx,text:rest.join(" "),time,dueDate:dateStr,done:appData.routineChecked?.[`${todayKey}-${idx}`]||false,key:`${todayKey}-${idx}`});});
+  const routineGroups={Morning:[],Afternoon:[],Evening:[]};
+  routineTasks.forEach(item=>{const hour=parseInt(item.time.split(":")[0],10);const bucket=hour<12?"Morning":hour<17?"Afternoon":"Evening";routineGroups[bucket].push(item);});
+  const hasRoutine=routineTasks.length>0;
   const tabTodos=[
     ...(appData.pregnancyTodos||[]).map((t,i)=>({id:t.id,text:t.text,done:t.done,source:"Baby",kind:"pregnancy",index:i})),
     ...(appData.tripTodos||[]).flatMap((trip,ti)=>((trip||[]).map(t=>({id:t.id,text:t.text,done:t.done,source:appData.tripDates?.[ti]?.name||`Trip ${ti+1}`,kind:"trip",tripIndex:ti,itemId:t.id}))))
@@ -747,6 +775,7 @@ function DashboardTab({appData,onUpdate}){
 
   const savePri=p=>onUpdate("dailyPriorities",{...appData.dailyPriorities,[todayKey]:p});
 
+  const toggleRoutine=idx=>{const key=`${todayKey}-${idx}`;onUpdate("routineChecked",{...appData.routineChecked,[key]:!appData.routineChecked?.[key]});};
   const toggleTodo=item=>{
     if(item.kind==="pregnancy")return onUpdate("pregnancyTodos",(appData.pregnancyTodos||[]).map((t,i)=>i===item.index?{...t,done:!t.done}:t));
     if(item.kind==="trip")return onUpdate("tripTodos",(appData.tripTodos||[]).map((arr,i)=>i===item.tripIndex?arr.map(t=>t.id===item.itemId?{...t,done:!t.done}:t):arr));
@@ -799,6 +828,36 @@ function DashboardTab({appData,onUpdate}){
         <p className="text-sm font-semibold text-amber-100">{meal?.meal||"No meal planned"}</p>
         {meal?.note&&<p className="text-xs text-amber-300/60 mt-0.5">{meal.note}</p>}
       </div>
+
+      {hasRoutine && (
+        <div className="space-y-4 rounded-2xl border border-slate-700 bg-slate-900/40 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-xs uppercase tracking-widest text-slate-500 font-semibold">Today's routine to-dos</h3>
+              <p className="text-xs text-slate-400">Grouped by when they need to be completed today.</p>
+            </div>
+            <span className="text-xs text-slate-500">{routineTasks.length} items</span>
+          </div>
+          {Object.entries(routineGroups).map(([bucket,items])=>items.length>0&&(
+            <div key={bucket} className="space-y-2">
+              <p className="text-xs uppercase tracking-widest text-slate-500">{bucket}</p>
+              <div className="space-y-2">
+                {items.map(item=> (
+                  <button key={item.key} onClick={()=>toggleRoutine(item.idx)} className={`w-full text-left rounded-2xl border px-3 py-3 flex items-start gap-3 ${item.done?"border-slate-800 bg-slate-900/50 opacity-70":"border-slate-700/60 bg-slate-800/30 hover:border-slate-500"}`}>
+                    <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${item.done?"bg-emerald-500 border-emerald-500":"border-slate-500"}`}>
+                      {item.done&&<svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${item.done?"line-through text-slate-500":"text-slate-200"}`}>{item.text}</p>
+                      <p className="text-xs text-slate-500 mt-1">Due {item.dueDate} · {item.time}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="space-y-5">
         <div className="flex items-center justify-between gap-3">
@@ -1155,10 +1214,12 @@ function GardeningTab({data,onUpdate}){
 function TravelsTab({tripTodos,tripDates,tripPacking,standardPackingList,onTodosUpdate,onDatesUpdate,onPackingUpdate,onStandardPackingUpdate}){
   const [open,setOpen]=useState(-1);
   const [newStandardItem,setNewStandardItem]=useState("");
+  const [standardCategory,setStandardCategory]=useState("misc");
   const [newTripTodo,setNewTripTodo]=useState({});
   const tog=(ti,id)=>onTodosUpdate(tripTodos.map((arr,i)=>i===ti?arr.map(t=>t.id===id?{...t,done:!t.done}:t):arr));
 
   const addTripTodo=(ti,txt)=>{const text=(txt||"").trim();if(!text)return; const nd=[...tripTodos]; nd[ti]=[...(nd[ti]||[]),{id:Date.now(),text,done:false}]; onTodosUpdate(nd); setNewTripTodo(prev=>({...prev,[ti]:""}));};
+  const updatePackingCategory=(ti,id,category)=>{const nd=tripPacking.map((arr,i)=>i===ti?arr.map(it=>it.id===id?{...it,category}:it):arr);onPackingUpdate(nd);};
 
   const max = Math.max(TRIPS.length, tripDates.length);
   const merged = Array.from({length:max}).map((_,i)=>{
@@ -1171,14 +1232,14 @@ function TravelsTab({tripTodos,tripDates,tripPacking,standardPackingList,onTodos
   const updateDates=(i,field,value)=>{const nd=[...tripDates];nd[i]={...(nd[i]||{}),[field]:value};onDatesUpdate(nd);};
   const updatePackingText=(ti,id,text)=>{const nd=tripPacking.map((arr,i)=>i===ti?arr.map(it=>it.id===id?{...it,text}:it):arr);onPackingUpdate(nd);};
   const togglePackingChecked=(ti,id)=>{const nd=tripPacking.map((arr,i)=>i===ti?arr.map(it=>it.id===id?{...it,checked:!it.checked}:it):arr);onPackingUpdate(nd);};
-  const addPackingItem=(ti,txt)=>{if(!txt) return; const nd=[...tripPacking]; nd[ti]=[...(nd[ti]||[]),{id:`${ti}-${Date.now()}`,text:txt,checked:false}];onPackingUpdate(nd);};
+  const addPackingItem=(ti,txt,category="misc")=>{if(!txt) return; const nd=[...tripPacking]; nd[ti]=[...(nd[ti]||[]),{id:`${ti}-${Date.now()}`,text:txt,checked:false,category}];onPackingUpdate(nd);};
   const removeTrip=ti=>{onDatesUpdate(tripDates.filter((_,i)=>i!==ti)); onPackingUpdate(tripPacking.filter((_,i)=>i!==ti)); onTodosUpdate(tripTodos.filter((_,i)=>i!==ti)); setOpen(-1);};
   const addTrip=()=>{onDatesUpdate([...tripDates,{name:`New Trip`,start:"",end:""}]); onPackingUpdate([...tripPacking,[]]); onTodosUpdate([...tripTodos,[]]); setOpen(Math.max(0,tripDates.length));};
 
   const addStandardItem=()=>{
     const text=newStandardItem.trim();
     if(!text) return;
-    onStandardPackingUpdate([...standardPackingList,text]);
+    onStandardPackingUpdate([...standardPackingList,{id:Date.now(),text,category:standardCategory}]);
     setNewStandardItem("");
   };
 
@@ -1189,7 +1250,12 @@ function TravelsTab({tripTodos,tripDates,tripPacking,standardPackingList,onTodos
   const addStandardPackingToTrip=ti=>{
     if(!standardPackingList.length) return;
     const nd=[...tripPacking];
-    nd[ti]=[...(nd[ti]||[]),...standardPackingList.map((text,i)=>({id:`${ti}-${Date.now()}-${i}`,text,checked:false}))];
+    nd[ti]=[...(nd[ti]||[]),...standardPackingList.map((item,i)=>({
+      id:`${ti}-${Date.now()}-${i}`,
+      text:typeof item === "string" ? item : item.text,
+      checked:false,
+      category:typeof item === "string" ? "misc" : item.category || "misc",
+    }))];
     onPackingUpdate(nd);
   };
 
@@ -1213,18 +1279,26 @@ function TravelsTab({tripTodos,tripDates,tripPacking,standardPackingList,onTodos
         <div className="space-y-3">
           {standardPackingList.length > 0 ? (
             <div className="space-y-2">
-              {standardPackingList.map((item,index)=>(
-                <div key={`${item}-${index}`} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/30">
-                  <span className="flex-1 text-sm text-slate-200">{item}</span>
-                  <button onClick={()=>removeStandardItem(index)} className="text-rose-400 text-sm">Remove</button>
-                </div>
-              ))}
+              {standardPackingList.map((item,index)=>{
+                const text = typeof item === "string" ? item : item.text;
+                const category = typeof item === "string" ? "misc" : item.category || "misc";
+                return (
+                  <div key={`${text}-${index}`} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/30">
+                    <span className="flex-1 text-sm text-slate-200">{text}</span>
+                    <span className="text-[11px] uppercase tracking-widest text-slate-400 bg-slate-900/40 px-2 py-1 rounded-full">{category}</span>
+                    <button onClick={()=>removeStandardItem(index)} className="text-rose-400 text-sm">Remove</button>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <p className="text-xs text-slate-500">No standard packing items yet. Add a reusable list here.</p>
           )}
-          <div className="flex gap-2">
-            <input value={newStandardItem} onChange={e=>setNewStandardItem(e.target.value)} placeholder="Add standard packing item…" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none" />
+          <div className="flex gap-2 flex-wrap">
+            <input value={newStandardItem} onChange={e=>setNewStandardItem(e.target.value)} placeholder="Add standard packing item…" className="flex-1 min-w-[220px] bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none" />
+            <select value={standardCategory} onChange={e=>setStandardCategory(e.target.value)} className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none">
+              {PACKING_CATEGORIES.map(cat=><option key={cat} value={cat}>{cat}</option>)}
+            </select>
             <button onClick={addStandardItem} className="px-3 py-2 bg-lime-500/20 hover:bg-lime-500/30 border border-lime-500/40 text-lime-300 rounded-xl text-xs">Add</button>
           </div>
         </div>
@@ -1266,13 +1340,16 @@ function TravelsTab({tripTodos,tripDates,tripPacking,standardPackingList,onTodos
                     </div>
                     <div className="space-y-2">
                       {(tripPacking[ti]||[]).map(item=> (
-                        <div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/20">
+                        <div key={item.id} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/20">
                           <input type="checkbox" checked={!!item.checked} onChange={()=>togglePackingChecked(ti,item.id)} className="h-4 w-4" />
-                          <input value={item.text} onChange={e=>updatePackingText(ti,item.id,e.target.value)} className="flex-1 bg-transparent text-sm text-slate-200 focus:outline-none" />
+                          <input value={item.text} onChange={e=>updatePackingText(ti,item.id,e.target.value)} className="flex-1 min-w-[160px] bg-transparent text-sm text-slate-200 focus:outline-none" />
+                          <select value={item.category||"misc"} onChange={e=>updatePackingCategory(ti,item.id,e.target.value)} className="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2 py-1 text-xs">
+                            {PACKING_CATEGORIES.map(cat=><option key={cat} value={cat}>{cat}</option>)}
+                          </select>
                           <button onClick={()=>onPackingUpdate(tripPacking.map((arr,i)=>i===ti?arr.filter(it=>it.id!==item.id):arr))} className="text-rose-400">×</button>
                         </div>
                       ))}
-                      <AddPackingInline onAdd={txt=>addPackingItem(ti,txt)} />
+                      <AddPackingInline onAdd={(txt,category)=>addPackingItem(ti,txt,category)} />
                     </div>
                   </div>
 
@@ -1294,7 +1371,7 @@ function TravelsTab({tripTodos,tripDates,tripPacking,standardPackingList,onTodos
   );
 }
 
-function AddPackingInline({onAdd}){const [v,setV]=useState("");return(<div className="flex gap-2"><input value={v} onChange={e=>setV(e.target.value)} placeholder="Add packing item…" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200"/><button onClick={()=>{if(!v.trim())return;onAdd(v.trim());setV("");}} className="px-3 py-2 bg-lime-500/20 hover:bg-lime-500/30 border border-lime-500/40 text-lime-300 rounded-xl text-xs">Add</button></div>);
+function AddPackingInline({onAdd}){const [v,setV]=useState("");const [category,setCategory]=useState("misc");return(<div className="flex flex-wrap gap-2"><input value={v} onChange={e=>setV(e.target.value)} placeholder="Add packing item…" className="flex-1 min-w-[180px] bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200"/><select value={category} onChange={e=>setCategory(e.target.value)} className="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-3 py-2 text-sm"><option value="attire">attire</option><option value="electronics">electronics</option><option value="misc">misc</option><option value="toiletries">toiletries</option><option value="backpack">backpack</option><option value="makeup">makeup</option></select><button onClick={()=>{if(!v.trim())return;onAdd(v.trim(),category);setV("");}} className="px-3 py-2 bg-lime-500/20 hover:bg-lime-500/30 border border-lime-500/40 text-lime-300 rounded-xl text-xs">Add</button></div>);
 }
 
 function PregnancyTab({todos,buyList,onTodosUpdate,onBuyUpdate}){
@@ -1409,7 +1486,7 @@ export default function App(){
         {activeTab==="financials"&&<FinancialsTab investments={appData.investments} netWorth={appData.netWorth} assumptions={appData.financialAssumptions} onUpdate={v=>update("investments",v)} onUpdateField={update}/>}
         {activeTab==="travels"&&<TravelsTab tripTodos={appData.tripTodos} tripDates={appData.tripDates} tripPacking={appData.tripPacking} standardPackingList={appData.standardPackingList} onTodosUpdate={v=>update("tripTodos",v)} onDatesUpdate={v=>update("tripDates",v)} onPackingUpdate={v=>update("tripPacking",v)} onStandardPackingUpdate={v=>update("standardPackingList",v)}/>}
         {activeTab==="plants"&&<PlantsTab data={appData.plants} gardenData={appData.gardenPlants} onUpdate={v=>update("plants",v)} onGardenUpdate={v=>update("gardenPlants",v)}/>}
-        {activeTab==="cooking"&&<MealsTab mealPlan={appData.mealPlan} groceryList={appData.groceryList} onMealUpdate={v=>update("mealPlan",v)} onGroceryUpdate={v=>update("groceryList",v)}/>} 
+        {activeTab==="routine"&&<RoutineTab checked={appData.routineChecked} workouts={appData.workouts} onCheckedUpdate={v=>update("routineChecked",v)} onWorkoutsUpdate={v=>update("workouts",v)}/>} 
         {activeTab==="grocery"&&<GroceryTab groceryList={appData.groceryList} onUpdate={v=>update("groceryList",v)}/>}
         {activeTab==="pregnancy"&&<PregnancyTab todos={appData.pregnancyTodos} buyList={appData.babyBuyList||BABY_BUY_LIST} onTodosUpdate={v=>update("pregnancyTodos",v)} onBuyUpdate={v=>update("babyBuyList",v)}/>}
 
