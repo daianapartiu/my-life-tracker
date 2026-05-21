@@ -330,6 +330,8 @@ const DEFAULT_DATA={
     "401k":{target:1500,contributions:[]},
     hsa:{target:HSA_BIWEEKLY,contributions:[]},
   },
+  netWorth:"",
+  financialAssumptions:{returnRate:0.06,years:15},
   currentBook:{title:"",author:"",startDate:"",pages:"",notes:""},
   readingLog:[],
   wishlist:[],
@@ -699,18 +701,23 @@ function DashboardTab({appData,onUpdate}){
 }
 
 // ── FINANCIALS ────────────────────────────────────────────────────────────────
-function FinancialsTab({investments,onUpdate}){
+function FinancialsTab({investments,netWorth,assumptions,onUpdate,onUpdateField}){
   const[search,setSearch]=useState("");
   const[active,setActive]=useState(null);
   const[amt,setAmt]=useState("");
+  const[contribBucket,setContribBucket]=useState(BUCKETS[0].id);
+  const[contribAmt,setContribAmt]=useState("");
   const[showLog,setShowLog]=useState(false);
   const[finTab,setFinTab]=useState("overview"); // overview | buckets | portfolio | news
-  const[netWorth,setNetWorth]=useState("");
-  const[netWorthEdit,setNetWorthEdit]=useState(false);
-  const[netWorthInput,setNetWorthInput]=useState("");
+  const[netWorthInput,setNetWorthInput]=useState(netWorth||"");
+  const[returnRateInput,setReturnRateInput]=useState(((assumptions?.returnRate||RATE)*100).toString());
+  const[yearsInput,setYearsInput]=useState((assumptions?.years||YEARS).toString());
   const[news,setNews]=useState([]);
   const[newsLoad,setNewsLoad]=useState(false);
   const[newsError,setNewsError]=useState(null);
+
+  useEffect(()=>{setNetWorthInput(netWorth||"");},[netWorth]);
+  useEffect(()=>{setReturnRateInput(((assumptions?.returnRate||RATE)*100).toString());setYearsInput((assumptions?.years||YEARS).toString());},[assumptions]);
 
   // ── goal math ──
   const totalWeeklyEquiv=Object.values(investments).reduce((s,b,i)=>s+(BUCKETS[i].freq==="bi-weekly"?b.target/2:b.target),0);
@@ -732,10 +739,17 @@ function FinancialsTab({investments,onUpdate}){
   // ── net worth calc ──
   const totalNetWorth=parseFloat((netWorth||"").toString().replace(/,/g,""))||0;
   const nwToGoal=Math.min((totalNetWorth/GOAL)*100,100);
-  const saveNetWorth=()=>{setNetWorth(netWorthInput);setNetWorthEdit(false);};
-  
+  const saveNetWorth=()=>{
+    onUpdateField("netWorth",netWorthInput);
+    const rate=parseFloat(returnRateInput)/100;
+    const years=parseInt(yearsInput)||YEARS;
+    onUpdateField("financialAssumptions",{...assumptions,returnRate:isNaN(rate)?assumptions.returnRate:rate,years});
+  };
+  const assumptionRate=assumptions?.returnRate||RATE;
+  const assumptionYears=assumptions?.years||YEARS;
+
   // ── age 45 projection calculation ──
-  const totalNetWorthFV=totalNetWorth*Math.pow(1+RATE,YEARS);
+  const totalNetWorthFV=totalNetWorth*Math.pow(1+assumptionRate,assumptionYears);
   const projectedAt45=Math.round(totalNetWorthFV+projected);
 
   const bucket=active?investments[active]:null;
@@ -745,6 +759,12 @@ function FinancialsTab({investments,onUpdate}){
     const bd=investments[active];
     onUpdate({...investments,[active]:{...bd,contributions:[...bd.contributions.filter(c=>c.week!==thisWeek),{week:thisWeek,amount:n,date:new Date().toLocaleDateString()}]}});
     setAmt("");setShowLog(false);
+  };
+  const logContribution=()=>{
+    const n=parseFloat(contribAmt);if(isNaN(n)||n<=0||!contribBucket)return;
+    const bd=investments[contribBucket]||{target:0,contributions:[]};
+    onUpdate({...investments,[contribBucket]:{...bd,contributions:[...bd.contributions,{week:thisWeek,amount:n,date:new Date().toLocaleDateString()}]}});
+    setContribAmt("");
   };
   const filtered=STOCKS.filter(s=>s.symbol.toLowerCase().includes(search.toLowerCase())||s.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -828,7 +848,7 @@ function FinancialsTab({investments,onUpdate}){
                 <div className="h-3 rounded-full transition-all duration-700" style={{width:`${pct}%`,background:"linear-gradient(90deg,#f43f5e,#a855f7,#10b981)"}}/>
               </div>
             </div>
-            <p className="text-xs text-slate-500 text-center">6% annual return · All buckets combined</p>
+            <p className="text-xs text-slate-500 text-center">{(assumptionRate*100).toFixed(1)}% annual return · All buckets combined</p>
           </div>
 
           {/* Projected value at age 45 */}
@@ -886,6 +906,59 @@ function FinancialsTab({investments,onUpdate}){
           <button onClick={()=>{setFinTab("news");fetchNews();}} className="w-full py-3 bg-slate-800/60 hover:bg-slate-800 border border-slate-700 rounded-2xl text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center gap-2">
             📰 Load today's market news & what people are buying →
           </button>
+
+          <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-widest">Assumed annual return</p>
+                <p className="text-xl font-bold text-white">{(assumptionRate*100).toFixed(1)}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-widest">Projection horizon</p>
+                <p className="text-xl font-bold text-white">{assumptionYears} years</p>
+              </div>
+              <button onClick={()=>setFinTab("networth")} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 rounded-xl text-xs">Edit assumptions</button>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="bg-slate-900/40 rounded-2xl p-3">
+                <p className="text-xs text-slate-500 uppercase tracking-widest">Projected at {assumptionYears} years</p>
+                <p className="text-xl font-semibold text-white">${(projectedAt45/1e6).toFixed(2)}M</p>
+              </div>
+              <div className="bg-slate-900/40 rounded-2xl p-3">
+                <p className="text-xs text-slate-500 uppercase tracking-widest">Expected return</p>
+                <p className="text-xl font-semibold text-white">{(assumptionRate*100).toFixed(1)}%</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-widest text-slate-500">Log a contribution</p>
+              <p className="text-xs text-slate-500">{allC.length?`${allC.length} contributions logged`:"No contributions yet"}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {BUCKETS.map(b=>(
+                <button key={b.id} onClick={()=>setContribBucket(b.id)} className={`px-3 py-2 text-xs rounded-xl border ${contribBucket===b.id?"bg-rose-500/20 border-rose-500/40 text-rose-300":"border-slate-700 text-slate-500 hover:text-slate-300"}`}>
+                  {b.emoji} {b.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input value={contribAmt} onChange={e=>setContribAmt(e.target.value)} type="number" placeholder="Amount" className="w-full sm:w-40 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/>
+              <button onClick={logContribution} className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 rounded-xl text-sm font-semibold">Log contribution</button>
+            </div>
+            {allC.length>0&&(
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between text-slate-500 uppercase tracking-widest text-xs"><span>Latest entries</span><span>Total ${allC.reduce((sum,c)=>sum+c.amount,0).toLocaleString()}</span></div>
+                {allC.slice(-3).reverse().map((c,i)=>(
+                  <div key={i} className="flex justify-between px-3 py-2 rounded-xl bg-slate-900/40">
+                    <span>{c.date||c.week}</span>
+                    <span>${c.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -905,8 +978,21 @@ function FinancialsTab({investments,onUpdate}){
                 className="w-full bg-slate-900 border border-slate-600 rounded-2xl pl-8 pr-4 py-4 text-2xl font-bold text-white placeholder-slate-600 focus:outline-none focus:border-emerald-400/60"
               />
             </div>
+            <div className="grid md:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500 uppercase tracking-widest">Assumed annual return</p>
+                <div className="relative">
+                  <input value={returnRateInput} onChange={e=>setReturnRateInput(e.target.value)} type="number" placeholder="6" className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500 uppercase tracking-widest">Projection horizon</p>
+                <input value={yearsInput} onChange={e=>setYearsInput(e.target.value)} type="number" placeholder="15" className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none" />
+              </div>
+            </div>
             <button onClick={saveNetWorth} className="w-full py-3 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 rounded-2xl text-sm font-semibold transition-colors">
-              Save Net Worth
+              Save Net Worth + Assumptions
             </button>
           </div>
           {totalNetWorth>0&&(
@@ -1240,7 +1326,7 @@ export default function App(){
       <div className="max-w-2xl mx-auto px-4 py-5">
         {activeTab==="dashboard"&&<DashboardTab appData={appData} onUpdate={update}/>}
         {activeTab==="calendar"&&<CalendarTab/>}
-        {activeTab==="financials"&&<FinancialsTab investments={appData.investments} onUpdate={v=>update("investments",v)}/>}
+        {activeTab==="financials"&&<FinancialsTab investments={appData.investments} netWorth={appData.netWorth} assumptions={appData.financialAssumptions} onUpdate={v=>update("investments",v)} onUpdateField={update}/>}
         {activeTab==="travels"&&<TravelsTab tripTodos={appData.tripTodos} onUpdate={v=>update("tripTodos",v)}/>}
         {activeTab==="plants"&&<PlantsTab data={appData.plants} onUpdate={v=>update("plants",v)}/>}
         {activeTab==="cooking"&&<MealsTab mealPlan={appData.mealPlan} groceryList={appData.groceryList} onMealUpdate={v=>update("mealPlan",v)} onGroceryUpdate={v=>update("groceryList",v)}/>}
