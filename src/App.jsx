@@ -264,6 +264,11 @@ const DEFAULT_MEAL_PLAN={
 const SUNLIGHT_OPT=["Full Sun (6+ hrs)","Partial Sun (3-6 hrs)","Indirect Bright","Low Light"];
 const WATER_OPT=["Daily","Every 2-3 days","Weekly","Every 2 weeks","Monthly"];
 
+const getPlantCareSummary=(plant)=>{
+  if(!plant||!plant.name.trim())return"";
+  return `${plant.name} needs ${plant.sunlight.toLowerCase()} and should be watered ${plant.watering.toLowerCase()}.`;
+};
+
 const DEFAULT_HABITS=[
   {id:1,label:"💧 Drink 8 glasses water",color:"sky"},
   {id:2,label:"🚶 Morning walk",color:"emerald"},
@@ -331,7 +336,7 @@ const DEFAULT_DATA={
     hsa:{target:HSA_BIWEEKLY,contributions:[]},
   },
   netWorth:"",
-  financialAssumptions:{returnRate:0.06,years:15},
+  financialAssumptions:{returnRate:0.06,years:15,weeklyContribution:1000},
   currentBook:{title:"",author:"",startDate:"",pages:"",notes:""},
   readingLog:[],
   wishlist:[],
@@ -365,40 +370,6 @@ const SP={
 };
 const CP={dashboard:"Ask about today's priorities...",calendar:"Ask about your schedule...",financials:"Ask about investments, portfolio, goal...",plants:"Ask about your English Ivy...",cooking:"Ask for recipes, meal plans, grocery help...",pregnancy:"Ask about week 20, registry...",gardening:"Ask about zone 9b, basil/thyme...",routine:"Ask about your schedule...",reading:"Ask for book recs...",habits:"Ask about building habits...",sidejob:"Ask about clients, pricing..."};
 
-// ── CHAT ──────────────────────────────────────────────────────────────────────
-function ChatPanel({tabId}){
-  const[msgs,setMsgs]=useState([]);const[inp,setInp]=useState("");const[load,setLoad]=useState(false);const bot=useRef(null);
-  useEffect(()=>{bot.current?.scrollIntoView({behavior:"smooth"});},[msgs,load]);
-  const send=async()=>{
-    const t=inp.trim();if(!t||load)return;setInp("");const nm=[...msgs,{role:"user",content:t}];setMsgs(nm);setLoad(true);
-    try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:SP[tabId],tools:[{type:"web_search_20250305",name:"web_search"}],messages:nm})});
-    const d=await r.json();const rep=d.content.filter(b=>b.type==="text").map(b=>b.text).join("\n").trim();
-    setMsgs(p=>[...p,{role:"assistant",content:rep||"No response. Try rephrasing."}]);}catch{setMsgs(p=>[...p,{role:"assistant",content:"Something went wrong."}]);}setLoad(false);
-  };
-  return(
-    <div className="flex flex-col rounded-2xl border border-slate-700/60 overflow-hidden bg-slate-900/50" style={{height:"240px"}}>
-      <div className="px-4 py-2 border-b border-slate-700/50 flex items-center gap-2 flex-shrink-0">
-        <div className="w-2 h-2 rounded-full bg-emerald-400" style={{animation:"pulse 2s infinite"}}/>
-        <span className="text-xs text-slate-400 font-medium">Ask Claude</span>
-      </div>
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        {msgs.length===0&&<p className="text-xs text-slate-600 italic mt-1">{CP[tabId]}</p>}
-        {msgs.map((m,i)=>(
-          <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}>
-            <div className={`px-3 py-2 rounded-xl text-sm leading-relaxed whitespace-pre-wrap ${m.role==="user"?"bg-rose-500/20 text-rose-100 border border-rose-500/30":"bg-slate-800 text-slate-200 border border-slate-700"}`} style={{maxWidth:"85%"}}>{m.content}</div>
-          </div>
-        ))}
-        {load&&<div className="flex justify-start"><div className="bg-slate-800 border border-slate-700 px-3 py-2.5 rounded-xl flex gap-1">{[0,1,2].map(i=><span key={i} className="w-1.5 h-1.5 bg-slate-500 rounded-full inline-block" style={{animation:`bounce 1s infinite ${i*0.15}s`}}/>)}</div></div>}
-        <div ref={bot}/>
-      </div>
-      <div className="px-3 py-2 border-t border-slate-700/50 flex gap-2 flex-shrink-0">
-        <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&send()} placeholder="Type a message..." className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-400/50"/>
-        <button onClick={send} disabled={load||!inp.trim()} className="px-3 py-2 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-30 border border-rose-500/40 text-rose-300 rounded-xl text-sm font-bold">↑</button>
-      </div>
-    </div>
-  );
-}
-
 function SaveBadge({status}){const map={saving:["text-amber-400","⟳ Saving…"],saved:["text-emerald-400","✓ Saved"],error:["text-rose-400","✗ Error"]};if(!map[status])return null;const[c,l]=map[status];return<span className={`text-xs ${c}`}>{l}</span>;}
 
 // ── CALENDAR TAB ──────────────────────────────────────────────────────────────
@@ -418,7 +389,6 @@ function CalendarTab(){
 
   return(
     <div className="space-y-5">
-      <ChatPanel tabId="calendar"/>
       <div className="flex items-center justify-between">
         <button onClick={()=>setWeekOffset(w=>w-1)} className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-400 hover:text-white text-sm transition-colors">← Prev</button>
         <div className="text-center">
@@ -489,7 +459,6 @@ function MealsTab({mealPlan,groceryList,onMealUpdate,onGroceryUpdate}){
 
   return(
     <div className="space-y-5">
-      <ChatPanel tabId="cooking"/>
 
       {/* Sub-tabs */}
       <div className="flex gap-1">
@@ -694,448 +663,143 @@ function DashboardTab({appData,onUpdate}){
           ))}
         </div>
       </div>
-
-      <ChatPanel tabId="dashboard"/>
     </div>
   );
 }
 
 // ── FINANCIALS ────────────────────────────────────────────────────────────────
 function FinancialsTab({investments,netWorth,assumptions,onUpdate,onUpdateField}){
-  const[search,setSearch]=useState("");
-  const[active,setActive]=useState(null);
-  const[amt,setAmt]=useState("");
-  const[contribBucket,setContribBucket]=useState(BUCKETS[0].id);
-  const[contribAmt,setContribAmt]=useState("");
-  const[showLog,setShowLog]=useState(false);
-  const[finTab,setFinTab]=useState("overview"); // overview | buckets | portfolio | news
-  const[netWorthInput,setNetWorthInput]=useState(netWorth||"");
-  const[returnRateInput,setReturnRateInput]=useState(((assumptions?.returnRate||RATE)*100).toString());
-  const[yearsInput,setYearsInput]=useState((assumptions?.years||YEARS).toString());
-  const[news,setNews]=useState([]);
-  const[newsLoad,setNewsLoad]=useState(false);
-  const[newsError,setNewsError]=useState(null);
+  const [netWorthInput, setNetWorthInput] = useState(netWorth || "");
+  const [returnRateInput, setReturnRateInput] = useState(((assumptions?.returnRate || RATE) * 100).toString());
+  const [yearsInput, setYearsInput] = useState((assumptions?.years || YEARS).toString());
+  const [weeklyInput, setWeeklyInput] = useState(((assumptions?.weeklyContribution || 0)).toString());
 
-  useEffect(()=>{setNetWorthInput(netWorth||"");},[netWorth]);
-  useEffect(()=>{setReturnRateInput(((assumptions?.returnRate||RATE)*100).toString());setYearsInput((assumptions?.years||YEARS).toString());},[assumptions]);
+  useEffect(() => { setNetWorthInput(netWorth || ""); }, [netWorth]);
+  useEffect(() => {
+    setReturnRateInput(((assumptions?.returnRate || RATE) * 100).toString());
+    setYearsInput((assumptions?.years || YEARS).toString());
+    setWeeklyInput(((assumptions?.weeklyContribution || 0)).toString());
+  }, [assumptions]);
 
-  // ── goal math ──
-  const totalWeeklyEquiv=Object.values(investments).reduce((s,b,i)=>s+(BUCKETS[i].freq==="bi-weekly"?b.target/2:b.target),0);
-  const allC=Object.values(investments).flatMap(b=>b.contributions).sort((a,b)=>a.week?.localeCompare(b.week||"")||0);
-  const wElapsed=allC.length;const futW=Math.max(0,WEEKS-wElapsed);
-  const futureFV=totalWeeklyEquiv*(Math.pow(1+WEEKLY_RATE,futW)-1)/WEEKLY_RATE;
-  const currentFV=allC.reduce((s,c,i)=>s+c.amount*Math.pow(1+WEEKLY_RATE,wElapsed-i+futW),0);
-  const projected=Math.round(currentFV+futureFV);
-  const pct=Math.min((projected/GOAL)*100,100);
-  const thisWeek=new Date().toISOString().slice(0,10);
-  
-  // ── annual investment calculation ──
-  const annualInvestment=Object.values(investments).reduce((s,b,i)=>{
-    const target=b.target||0;
-    const freq=BUCKETS[i].freq;
-    return s+(freq==="bi-weekly"?target*26:target*52);
-  },0);
+  const totalNetWorth = parseFloat((netWorth || "").toString().replace(/,/g, "")) || 0;
+  const assumedRate = parseFloat(returnRateInput) / 100;
+  const years = Math.max(1, parseInt(yearsInput) || YEARS);
+  const weeklyContribution = Math.max(0, parseFloat(weeklyInput) || 0);
+  const contributionAnnual = Math.round(weeklyContribution * 52);
+  const weeks = years * 52;
+  const weeklyRate = assumedRate / 52;
 
-  // ── net worth calc ──
-  const totalNetWorth=parseFloat((netWorth||"").toString().replace(/,/g,""))||0;
-  const nwToGoal=Math.min((totalNetWorth/GOAL)*100,100);
-  const saveNetWorth=()=>{
-    onUpdateField("netWorth",netWorthInput);
-    const rate=parseFloat(returnRateInput)/100;
-    const years=parseInt(yearsInput)||YEARS;
-    onUpdateField("financialAssumptions",{...assumptions,returnRate:isNaN(rate)?assumptions.returnRate:rate,years});
-  };
-  const assumptionRate=assumptions?.returnRate||RATE;
-  const assumptionYears=assumptions?.years||YEARS;
+  const projectedValue = (() => {
+    const currentFV = totalNetWorth * Math.pow(1 + weeklyRate, weeks);
+    const contributionsFV = weeklyRate > 0
+      ? weeklyContribution * (Math.pow(1 + weeklyRate, weeks) - 1) / weeklyRate
+      : weeklyContribution * weeks;
+    return Math.round(currentFV + contributionsFV);
+  })();
 
-  // ── age 45 projection calculation ──
-  const totalNetWorthFV=totalNetWorth*Math.pow(1+assumptionRate,assumptionYears);
-  const projectedAt45=Math.round(totalNetWorthFV+projected);
+  const yearlyProjections = Array.from({ length: years + 1 }, (_, year) => {
+    const yearWeeks = year * 52;
+    const value = totalNetWorth * Math.pow(1 + weeklyRate, yearWeeks) + (weeklyRate > 0
+      ? weeklyContribution * (Math.pow(1 + weeklyRate, yearWeeks) - 1) / weeklyRate
+      : weeklyContribution * yearWeeks);
+    return { year, value: Math.round(value) };
+  });
 
-  const bucket=active?investments[active]:null;
-  const thisEntry=bucket?.contributions.find(c=>c.week===thisWeek);
-  const logC=()=>{
-    const n=parseFloat(amt);if(isNaN(n)||n<=0||!active)return;
-    const bd=investments[active];
-    onUpdate({...investments,[active]:{...bd,contributions:[...bd.contributions.filter(c=>c.week!==thisWeek),{week:thisWeek,amount:n,date:new Date().toLocaleDateString()}]}});
-    setAmt("");setShowLog(false);
-  };
-  const logContribution=()=>{
-    const n=parseFloat(contribAmt);if(isNaN(n)||n<=0||!contribBucket)return;
-    const bd=investments[contribBucket]||{target:0,contributions:[]};
-    onUpdate({...investments,[contribBucket]:{...bd,contributions:[...bd.contributions,{week:thisWeek,amount:n,date:new Date().toLocaleDateString()}]}});
-    setContribAmt("");
-  };
-  const filtered=STOCKS.filter(s=>s.symbol.toLowerCase().includes(search.toLowerCase())||s.name.toLowerCase().includes(search.toLowerCase()));
+  const pctToGoal = Math.min((projectedValue / GOAL) * 100, 100);
 
-  // ── live market news ──
-  const fetchNews=async()=>{
-    setNewsLoad(true);setNewsError(null);setNews([]);
-    try{
-      const mySymbols=STOCKS.map(s=>s.symbol).join(", ");
-      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,
-          system:`You are a financial news analyst. Search the web for TODAY's stock market news. Return ONLY a JSON array of news items. Each item: {"headline":"...","summary":"...","sentiment":"positive"|"negative"|"neutral","tickers":["AAPL"],"type":"your_stock"|"trending"|"market"}. No markdown. No extra text. Focus on: stocks the user owns, what retail investors are buying today, and major market moves.`,
-          tools:[{type:"web_search_20250305",name:"web_search"}],
-          messages:[{role:"user",content:`Today is ${new Date().toLocaleDateString()}. Search for: 1) stock market news today, 2) most bought stocks today retail investors, 3) news on any of these: NVDA AAPL AMZN GOOGL AMD MU SOFI CAVA HIMS AXON. Return as JSON array of 6-8 news items with fields: headline, summary (1 sentence), sentiment (positive/negative/neutral), tickers (array), type (your_stock if it's one I own, trending if retail buying, market for general news).`}]})});
-      const d=await r.json();
-      const txt=d.content.filter(b=>b.type==="text").map(b=>b.text).join("");
-      const match=txt.match(/\[[\s\S]*\]/);
-      if(match){setNews(JSON.parse(match[0]));}
-      else{setNewsError("Couldn't parse news. Try again.");}
-    }catch(e){setNewsError("Failed to load news. Check connection.");}
-    setNewsLoad(false);
+  const saveSettings = () => {
+    onUpdateField("netWorth", netWorthInput);
+    const rate = isNaN(assumedRate) ? assumptions.returnRate : assumedRate;
+    const weekly = weeklyContribution;
+    onUpdateField("financialAssumptions", { ...assumptions, returnRate: rate, years, weeklyContribution: weekly });
   };
 
-  const sentimentStyle={
-    positive:"border-emerald-700/50 bg-emerald-900/20",
-    negative:"border-rose-700/50 bg-rose-900/20",
-    neutral:"border-slate-700 bg-slate-800/30",
-  };
-  const sentimentDot={positive:"bg-emerald-400",negative:"bg-rose-400",neutral:"bg-slate-500"};
-  const typeBadge={
-    your_stock:"bg-violet-500/20 text-violet-300 border-violet-500/30",
-    trending:"bg-amber-500/20 text-amber-300 border-amber-500/30",
-    market:"bg-sky-500/20 text-sky-300 border-sky-500/30",
-  };
-  const typeLabel={your_stock:"Your Stock",trending:"Trending",market:"Market"};
-
-  return(
+  return (
     <div className="space-y-5">
-      <ChatPanel tabId="financials"/>
-
-      {/* Sub-nav */}
-      <div className="flex gap-1 overflow-x-auto scrollbar-hide">
-        {[["overview","📊 Overview"],["networth","💎 Net Worth"],["buckets","🪣 Buckets"],["portfolio","📈 Portfolio"],["news","📰 News"]].map(([t,l])=>(
-          <button key={t} onClick={()=>setFinTab(t)} className={`flex-shrink-0 px-3 py-1.5 text-xs rounded-xl border transition-all ${finTab===t?"bg-rose-500/20 border-rose-500/40 text-rose-300 font-semibold":"border-slate-700 text-slate-500 hover:text-slate-300"}`}>{l}</button>
-        ))}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Current net worth</p>
+          <p className="text-3xl font-bold text-emerald-300 mt-2">${totalNetWorth.toLocaleString()}</p>
+          <p className="text-xs text-slate-500 mt-2">Enter what you have today. This is the starting point for the projection.</p>
+        </div>
+        <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Weekly savings plan</p>
+          <p className="text-3xl font-bold text-rose-300 mt-2">${weeklyContribution.toLocaleString()}</p>
+          <p className="text-xs text-slate-500 mt-2">${contributionAnnual.toLocaleString()} per year at current weekly savings.</p>
+        </div>
       </div>
 
-      {/* ── OVERVIEW ── */}
-      {finTab==="overview"&&(
-        <div className="space-y-4">
-          {/* Annual investment & projections */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-3">
-              <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Annual Investment</p>
-              <p className="text-2xl font-bold text-rose-300">${annualInvestment.toLocaleString()}</p>
-              <p className="text-xs text-slate-600 mt-1">per year</p>
-            </div>
-            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-3">
-              <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Current Net Worth</p>
-              <p className="text-2xl font-bold text-emerald-300">${totalNetWorth.toLocaleString()}</p>
-              <p className="text-xs text-slate-600 mt-1">{totalNetWorth>0?`${(totalNetWorth/GOAL*100).toFixed(1)}% of goal`:""}</p>
-            </div>
-          </div>
-
-          {/* Goal card */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700 rounded-2xl p-4 space-y-3">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-widest mb-0.5">Retirement Goal</p>
-                <p className="text-3xl font-bold text-white">$4.5M</p>
-                <p className="text-xs text-slate-500 mt-0.5">by age 45 · {YEARS} years</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-slate-500 mb-0.5">Projected</p>
-                <p className="text-xl font-bold text-rose-300">${(projected/1e6).toFixed(2)}M</p>
-                <p className="text-xs text-slate-500">{pct.toFixed(1)}% of goal</p>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-xs text-slate-500 mb-1"><span>Projected path</span><span>${GOAL.toLocaleString()}</span></div>
-              <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-3 rounded-full transition-all duration-700" style={{width:`${pct}%`,background:"linear-gradient(90deg,#f43f5e,#a855f7,#10b981)"}}/>
-              </div>
-            </div>
-            <p className="text-xs text-slate-500 text-center">{(assumptionRate*100).toFixed(1)}% annual return · All buckets combined</p>
-          </div>
-
-          {/* Projected value at age 45 */}
-          {(totalNetWorth>0||projected>0)&&(
-            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-2">
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Projected at Age 45</p>
-              <p className="text-3xl font-bold text-white">${(projectedAt45/1e6).toFixed(2)}M</p>
-              <div className="text-xs text-slate-500 space-y-1 pt-1 border-t border-slate-700">
-                <div className="flex justify-between">
-                  <span>Current net worth growing:</span>
-                  <span className="text-slate-300">${(totalNetWorthFV/1e6).toFixed(2)}M</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>New contributions:</span>
-                  <span className="text-slate-300">${(projected/1e6).toFixed(2)}M</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Net worth snapshot */}
-          {totalNetWorth>0?(
-            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-widest">Net Worth</p>
-                <p className="text-2xl font-bold text-white">${totalNetWorth.toLocaleString()}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{nwToGoal.toFixed(1)}% of $4.5M goal</p>
-              </div>
-              <button onClick={()=>{setNetWorthInput(netWorth);setFinTab("networth");}} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 rounded-xl text-xs transition-colors">Edit</button>
-            </div>
-          ):(
-            <button onClick={()=>{setNetWorthInput("");setFinTab("networth");}} className="w-full py-3 border border-dashed border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 rounded-2xl text-sm transition-colors">
-              💎 Add your current net worth →
-            </button>
-          )}
-
-          {/* Weekly targets summary */}
-          <div className="grid grid-cols-3 gap-2">
-            {BUCKETS.map(b=>{
-              const bd=investments[b.id]||{target:0,contributions:[]};
-              const hasThisWeek=bd.contributions.some(c=>c.week===thisWeek);
-              const c=BC[b.color];
-              return(
-                <div key={b.id} className={`rounded-xl border p-2.5 text-center ${hasThisWeek?`${c.bg} ${c.border}`:"border-slate-700 bg-slate-800/30"}`}>
-                  <p className="text-base">{b.emoji}</p>
-                  <p className={`text-xs font-bold ${hasThisWeek?c.text:"text-slate-400"}`}>${bd.target.toLocaleString()}</p>
-                  <p className="text-xs text-slate-600">{b.freq==="bi-weekly"?"bi-wkly":"wkly"}</p>
-                  {hasThisWeek&&<p className="text-xs text-emerald-400 mt-0.5">✓ logged</p>}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Quick news teaser */}
-          <button onClick={()=>{setFinTab("news");fetchNews();}} className="w-full py-3 bg-slate-800/60 hover:bg-slate-800 border border-slate-700 rounded-2xl text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center gap-2">
-            📰 Load today's market news & what people are buying →
-          </button>
-
-          <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-widest">Assumed annual return</p>
-                <p className="text-xl font-bold text-white">{(assumptionRate*100).toFixed(1)}%</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-widest">Projection horizon</p>
-                <p className="text-xl font-bold text-white">{assumptionYears} years</p>
-              </div>
-              <button onClick={()=>setFinTab("networth")} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 rounded-xl text-xs">Edit assumptions</button>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="bg-slate-900/40 rounded-2xl p-3">
-                <p className="text-xs text-slate-500 uppercase tracking-widest">Projected at {assumptionYears} years</p>
-                <p className="text-xl font-semibold text-white">${(projectedAt45/1e6).toFixed(2)}M</p>
-              </div>
-              <div className="bg-slate-900/40 rounded-2xl p-3">
-                <p className="text-xs text-slate-500 uppercase tracking-widest">Expected return</p>
-                <p className="text-xl font-semibold text-white">{(assumptionRate*100).toFixed(1)}%</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-widest text-slate-500">Log a contribution</p>
-              <p className="text-xs text-slate-500">{allC.length?`${allC.length} contributions logged`:"No contributions yet"}</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {BUCKETS.map(b=>(
-                <button key={b.id} onClick={()=>setContribBucket(b.id)} className={`px-3 py-2 text-xs rounded-xl border ${contribBucket===b.id?"bg-rose-500/20 border-rose-500/40 text-rose-300":"border-slate-700 text-slate-500 hover:text-slate-300"}`}>
-                  {b.emoji} {b.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input value={contribAmt} onChange={e=>setContribAmt(e.target.value)} type="number" placeholder="Amount" className="w-full sm:w-40 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/>
-              <button onClick={logContribution} className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 rounded-xl text-sm font-semibold">Log contribution</button>
-            </div>
-            {allC.length>0&&(
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-slate-500 uppercase tracking-widest text-xs"><span>Latest entries</span><span>Total ${allC.reduce((sum,c)=>sum+c.amount,0).toLocaleString()}</span></div>
-                {allC.slice(-3).reverse().map((c,i)=>(
-                  <div key={i} className="flex justify-between px-3 py-2 rounded-xl bg-slate-900/40">
-                    <span>{c.date||c.week}</span>
-                    <span>${c.amount.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── NET WORTH ── */}
-      {finTab==="networth"&&(
-        <div className="space-y-4">
-          <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5 space-y-4">
-            <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">💎 Current Net Worth</p>
+      <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5 space-y-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-widest text-slate-500">Current net worth</p>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg font-semibold">$</span>
-              <input
-                value={netWorthInput}
-                onChange={e=>setNetWorthInput(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&saveNetWorth()}
-                type="number"
-                placeholder="e.g. 150000"
-                className="w-full bg-slate-900 border border-slate-600 rounded-2xl pl-8 pr-4 py-4 text-2xl font-bold text-white placeholder-slate-600 focus:outline-none focus:border-emerald-400/60"
-              />
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+              <input value={netWorthInput} onChange={e => setNetWorthInput(e.target.value)} type="number" placeholder="e.g. 150000" className="w-full bg-slate-900 border border-slate-700 rounded-2xl pl-9 pr-4 py-3 text-lg text-white placeholder-slate-600 focus:outline-none" />
             </div>
-            <div className="grid md:grid-cols-2 gap-3">
+          </div>
+          <div className="grid gap-3">
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-widest text-slate-500">Annual return</p>
+              <div className="relative">
+                <input value={returnRateInput} onChange={e => setReturnRateInput(e.target.value)} type="number" placeholder="6" className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-3 text-lg text-white placeholder-slate-600 focus:outline-none" />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">%</span>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <p className="text-xs text-slate-500 uppercase tracking-widest">Assumed annual return</p>
+                <p className="text-xs uppercase tracking-widest text-slate-500">Horizon</p>
+                <input value={yearsInput} onChange={e => setYearsInput(e.target.value)} type="number" placeholder="15" className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-3 text-lg text-white placeholder-slate-600 focus:outline-none" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-widest text-slate-500">Weekly contribution</p>
                 <div className="relative">
-                  <input value={returnRateInput} onChange={e=>setReturnRateInput(e.target.value)} type="number" placeholder="6" className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none" />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                  <input value={weeklyInput} onChange={e => setWeeklyInput(e.target.value)} type="number" placeholder="500" className="w-full bg-slate-900 border border-slate-700 rounded-2xl pl-9 pr-4 py-3 text-lg text-white placeholder-slate-600 focus:outline-none" />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs text-slate-500 uppercase tracking-widest">Projection horizon</p>
-                <input value={yearsInput} onChange={e=>setYearsInput(e.target.value)} type="number" placeholder="15" className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none" />
               </div>
             </div>
-            <button onClick={saveNetWorth} className="w-full py-3 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 rounded-2xl text-sm font-semibold transition-colors">
-              Save Net Worth + Assumptions
-            </button>
           </div>
-          {totalNetWorth>0&&(
-            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3">
-              <div className="flex justify-between items-end">
-                <div>
-                  <p className="text-xs text-slate-500 mb-0.5">Your net worth</p>
-                  <p className="text-2xl font-bold text-white">${totalNetWorth.toLocaleString()}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-slate-500 mb-0.5">Goal</p>
-                  <p className="text-lg font-semibold text-slate-400">$4,500,000</p>
-                </div>
+        </div>
+        <button onClick={saveSettings} className="w-full py-3 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 rounded-2xl text-sm font-semibold transition-colors">Save assumptions</button>
+      </div>
+
+      <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5 space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-slate-500">Projected value in {years} years</p>
+            <p className="text-4xl font-bold text-white">${projectedValue.toLocaleString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Goal progress</p>
+            <p className="text-xl font-bold text-emerald-300">{pctToGoal.toFixed(1)}%</p>
+          </div>
+        </div>
+        <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-3 rounded-full bg-emerald-500 transition-all" style={{width:`${pctToGoal}%`}}/>
+        </div>
+        <p className="text-xs text-slate-500">This assumes ${weeklyContribution.toLocaleString()} saved each week with {(assumedRate*100).toFixed(1)}% annual growth.</p>
+      </div>
+
+      <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Year-by-year projection</p>
+          <p className="text-xs text-slate-500">{years + 1} points</p>
+        </div>
+        <div className="space-y-3">
+          {yearlyProjections.map((item, i) => (
+            <div key={i} className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span>Year {item.year}</span>
+                <span>${item.value.toLocaleString()}</span>
               </div>
-              <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-3 bg-emerald-500 rounded-full transition-all" style={{width:`${Math.min(nwToGoal,100)}%`}}/>
-              </div>
-              <div className="flex justify-between text-xs text-slate-500">
-                <span>{nwToGoal.toFixed(1)}% of goal</span>
-                <span>${(Math.max(GOAL-totalNetWorth,0)).toLocaleString()} to go</span>
+              <div className="h-3 bg-slate-900 rounded-full overflow-hidden">
+                <div className="h-3 bg-emerald-500" style={{width:`${Math.min((item.value / GOAL) * 100, 100)}%`}}/>
               </div>
             </div>
-          )}
-          <p className="text-xs text-slate-600 text-center">Saved to Google Drive · Update anytime</p>
+          ))}
         </div>
-      )}
-
-      {/* ── BUCKETS ── */}
-      {finTab==="buckets"&&(
-        <div className="space-y-3">
-          {BUCKETS.map(b=>{
-            const bd=investments[b.id]||{target:500,contributions:[]};const c=BC[b.color];const isA=active===b.id;
-            const te=bd.contributions.find(cc=>cc.week===thisWeek);
-            return(
-              <div key={b.id} className={`rounded-2xl border p-4 ${isA?`${c.bg} ${c.border}`:c.bg+" border-slate-700/60"}`}>
-                <button onClick={()=>setActive(isA?null:b.id)} className="w-full flex items-center justify-between">
-                  <div className="flex items-center gap-2"><span className="text-xl">{b.emoji}</span><div className="text-left"><p className="text-sm font-semibold text-slate-100">{b.label}</p><p className="text-xs text-slate-500">{b.description} · {b.freq}</p></div></div>
-                  <div className="text-right"><p className={`text-base font-bold ${c.text}`}>${bd.target.toLocaleString()}</p><p className="text-xs text-slate-500">per {b.freq==="bi-weekly"?"2 wks":"wk"}</p></div>
-                </button>
-                {isA&&(
-                  <div className="mt-3 space-y-3 border-t border-slate-700/50 pt-3">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-slate-400 flex-shrink-0">Target:</label>
-                      <input type="number" defaultValue={bd.target} onBlur={e=>{const n=parseFloat(e.target.value);if(!isNaN(n))onUpdate({...investments,[b.id]:{...bd,target:n}});}} className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-slate-200 focus:outline-none"/>
-                      {b.id==="hsa"&&<span className="text-xs text-emerald-400 flex-shrink-0">Max $8,300/yr</span>}
-                    </div>
-                    {!showLog||active!==b.id?(
-                      <button onClick={()=>setShowLog(true)} className={`w-full py-2 border ${c.border} rounded-xl text-xs font-semibold ${c.text} hover:bg-white/5`}>
-                        {te?`✓ Logged $${te.amount.toLocaleString()} this period`:`+ Log ${b.freq} contribution`}
-                      </button>
-                    ):(
-                      <div className="flex gap-2">
-                        <input value={amt} onChange={e=>setAmt(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logC()} type="number" placeholder={`Target: $${bd.target}`} className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/>
-                        <button onClick={logC} className={`px-3 py-2 border ${c.border} ${c.text} rounded-xl text-sm font-bold hover:bg-white/5`}>Log</button>
-                        <button onClick={()=>setShowLog(false)} className="px-3 py-2 bg-slate-700 text-slate-400 rounded-xl text-sm">✕</button>
-                      </div>
-                    )}
-                    {bd.contributions.length>0&&(
-                      <div className="space-y-1 max-h-28 overflow-y-auto">
-                        {bd.contributions.slice(-5).reverse().map((cc,i)=>(
-                          <div key={i} className="flex justify-between px-2 py-1 rounded-lg bg-slate-900/40 text-xs">
-                            <span className="text-slate-500">{cc.date||cc.week}</span>
-                            <span className={`font-semibold ${cc.amount>=bd.target?c.text:"text-amber-400"}`}>${cc.amount.toLocaleString()} {cc.amount>=bd.target?"✓":"↓"}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── PORTFOLIO ── */}
-      {finTab==="portfolio"&&(
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <div className="flex-1 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2 text-center"><p className="text-base font-bold text-emerald-400">{STOCKS.filter(s=>s.chg>0).length}</p><p className="text-xs text-slate-500">Up today</p></div>
-            <div className="flex-1 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2 text-center"><p className="text-base font-bold text-rose-400">{STOCKS.filter(s=>s.chg<0).length}</p><p className="text-xs text-slate-500">Down today</p></div>
-            <div className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-center"><p className="text-base font-bold text-slate-300">{STOCKS.length}</p><p className="text-xs text-slate-500">Holdings</p></div>
-          </div>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search symbol or name…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-400/50"/>
-          <div className="space-y-1.5">
-            {filtered.map(s=>(
-              <div key={s.symbol} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${s.chg>=0?"border-emerald-900/60 bg-emerald-900/10":"border-rose-900/60 bg-rose-900/10"}`}>
-                <div className="flex-1 min-w-0"><p className="text-sm font-bold text-slate-100">{s.symbol}</p><p className="text-xs text-slate-500 truncate">{s.name}</p></div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold text-slate-200">${s.price.toFixed(2)}</p>
-                  <p className={`text-xs font-medium ${s.chg>=0?"text-emerald-400":"text-rose-400"}`}>{s.chg>=0?"+":""}{s.chg.toFixed(2)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── NEWS ── */}
-      {finTab==="news"&&(
-        <div className="space-y-4">
-          <button onClick={fetchNews} disabled={newsLoad}
-            className="w-full py-3 bg-slate-800/60 hover:bg-slate-800 disabled:opacity-50 border border-slate-700 rounded-2xl text-sm font-semibold text-slate-300 transition-colors flex items-center justify-center gap-2">
-            <span style={newsLoad?{animation:"spin 0.8s linear infinite",display:"inline-block"}:{}}>{newsLoad?"⟳":"📰"}</span>
-            {newsLoad?"Searching markets & news…":"Refresh market news"}
-          </button>
-
-          {/* Legend */}
-          <div className="flex gap-2 flex-wrap">
-            {[["your_stock","Your Stocks"],["trending","Trending / Retail Buys"],["market","Market News"]].map(([t,l])=>(
-              <span key={t} className={`text-xs px-2 py-0.5 rounded-full border ${typeBadge[t]}`}>{l}</span>
-            ))}
-          </div>
-
-          {newsError&&<p className="text-xs text-rose-400 px-1">{newsError}</p>}
-
-          {news.length===0&&!newsLoad&&!newsError&&(
-            <p className="text-xs text-slate-600 italic px-1">Tap "Refresh" to load today's stock news, market movers, and what retail investors are buying.</p>
-          )}
-
-          <div className="space-y-3">
-            {news.map((item,i)=>(
-              <div key={i} className={`rounded-2xl border p-4 space-y-2 ${sentimentStyle[item.sentiment]||sentimentStyle.neutral}`}>
-                <div className="flex items-start gap-2">
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${sentimentDot[item.sentiment]||sentimentDot.neutral}`}/>
-                  <p className="text-sm font-semibold text-slate-100 leading-snug flex-1">{item.headline}</p>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed pl-4">{item.summary}</p>
-                <div className="flex items-center gap-2 pl-4 flex-wrap">
-                  {item.type&&<span className={`text-xs px-2 py-0.5 rounded-full border ${typeBadge[item.type]||typeBadge.market}`}>{typeLabel[item.type]||item.type}</span>}
-                  {(item.tickers||[]).map(t=>(
-                    <span key={t} className="text-xs bg-slate-700/60 text-slate-300 px-2 py-0.5 rounded-full">{t}</span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {news.length>0&&(
-            <p className="text-xs text-slate-600 text-center">News is AI-sourced via web search · Not financial advice</p>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1154,7 +818,6 @@ function PlantsTab({data,onUpdate}){
   const upcoming=sorted.filter(p=>getDaysUntil(p)>0);
   return(
     <div className="space-y-5">
-      <ChatPanel tabId="plants"/>
       <div className="flex gap-1">{[["schedule","💧 Schedule"],["list","🌿 All Plants"]].map(([t,l])=><button key={t} onClick={()=>setView(t)} className={`flex-1 py-2 text-xs rounded-xl border transition-all ${view===t?"bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-semibold":"border-slate-700 text-slate-500 hover:text-slate-300"}`}>{l}</button>)}</div>
       {view==="schedule"&&(<div className="space-y-4">
         {data.length===0&&<p className="text-xs text-slate-700 italic px-1">Add plants to see your watering schedule.</p>}
@@ -1163,7 +826,7 @@ function PlantsTab({data,onUpdate}){
       </div>)}
       {view==="list"&&(<div className="space-y-3">
         <div className="flex items-center justify-between"><h3 className="text-xs uppercase tracking-widest text-slate-500 font-semibold">My Houseplants ({data.length})</h3><button onClick={()=>setShow(!show)} className="px-3 py-1.5 bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-700/40 text-emerald-400 rounded-xl text-xs font-medium">+ Add</button></div>
-        {show&&(<div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3"><input value={np.name} onChange={e=>setNp(p=>({...p,name:e.target.value}))} placeholder="Plant name…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><div className="grid grid-cols-2 gap-2"><select value={np.sunlight} onChange={e=>setNp(p=>({...p,sunlight:e.target.value}))} className="bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-200 focus:outline-none">{SUNLIGHT_OPT.map(o=><option key={o}>{o}</option>)}</select><select value={np.watering} onChange={e=>setNp(p=>({...p,watering:e.target.value}))} className="bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-200 focus:outline-none">{WATER_OPT.map(o=><option key={o}>{o}</option>)}</select></div><textarea value={np.notes} onChange={e=>setNp(p=>({...p,notes:e.target.value}))} placeholder="Notes…" rows={2} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none resize-none"/><div className="flex gap-2"><button onClick={add} className="flex-1 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 rounded-xl text-sm font-semibold">Add</button><button onClick={()=>setShow(false)} className="px-4 py-2 bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm">Cancel</button></div></div>)}
+        {show&&(<div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3"><input value={np.name} onChange={e=>setNp(p=>({...p,name:e.target.value}))} placeholder="Plant name…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><div className="grid grid-cols-2 gap-2"><select value={np.sunlight} onChange={e=>setNp(p=>({...p,sunlight:e.target.value}))} className="bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-200 focus:outline-none">{SUNLIGHT_OPT.map(o=><option key={o}>{o}</option>)}</select><select value={np.watering} onChange={e=>setNp(p=>({...p,watering:e.target.value}))} className="bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-200 focus:outline-none">{WATER_OPT.map(o=><option key={o}>{o}</option>)}</select></div><p className="text-xs text-slate-400">{getPlantCareSummary(np)}</p><textarea value={np.notes} onChange={e=>setNp(p=>({...p,notes:e.target.value}))} placeholder="Notes…" rows={2} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none resize-none"/><div className="flex gap-2"><button onClick={add} className="flex-1 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 rounded-xl text-sm font-semibold">Add</button><button onClick={()=>setShow(false)} className="px-4 py-2 bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm">Cancel</button></div></div>)}
         <div className="space-y-2">{data.map(p=><div key={p.id} className="border border-slate-700 rounded-xl overflow-hidden bg-slate-900/40 p-3 flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-emerald-900/40 flex items-center justify-center text-lg flex-shrink-0">{p.photo?<img src={p.photo} alt={p.name} className="w-10 h-10 rounded-xl object-cover"/>:"🌿"}</div><div className="flex-1 min-w-0"><p className="text-sm font-semibold text-slate-100">{p.name}</p><p className="text-xs text-slate-500">{p.sunlight} · {p.watering}</p></div><button onClick={()=>onUpdate(data.filter(x=>x.id!==p.id))} className="text-slate-700 hover:text-rose-400 text-lg leading-none">×</button></div>)}</div>
         {data.length===0&&<p className="text-xs text-slate-700 italic px-1">No houseplants yet</p>}
       </div>)}
@@ -1189,7 +852,6 @@ function GardeningTab({data,onUpdate}){
   const handlePhoto=(id,e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>onUpdate(data.map(x=>x.id===id?{...x,photo:r.result}:x));r.readAsDataURL(f);};
   return(
     <div className="space-y-5">
-      <ChatPanel tabId="gardening"/>
       <div className="flex gap-1 overflow-x-auto scrollbar-hide">{[["mygarden","🌱 My Garden"],["catalog","📋 Plant Catalog"],["calendar","📅 Zone 9b"]].map(([t,l])=><button key={t} onClick={()=>setGView(t)} className={`flex-shrink-0 flex-1 py-2 text-xs rounded-xl border transition-all ${gView===t?"bg-lime-500/20 border-lime-500/40 text-lime-300 font-semibold":"border-slate-700 text-slate-500 hover:text-slate-300"}`}>{l}</button>)}</div>
 
       {gView==="mygarden"&&(<div className="space-y-3">
@@ -1214,7 +876,7 @@ function GardeningTab({data,onUpdate}){
   );
 }
 
-function TravelsTab({tripTodos,onUpdate}){const[open,setOpen]=useState(0);const tog=(ti,id)=>onUpdate(tripTodos.map((arr,i)=>i===ti?arr.map(t=>t.id===id?{...t,done:!t.done}:t):arr));return(<div className="space-y-5"><ChatPanel tabId="travels"/><div className="space-y-3">{TRIPS.map((trip,ti)=><div key={ti} className={`rounded-2xl border p-4 ${trip.color}`}><button onClick={()=>setOpen(open===ti?-1:ti)} className="w-full flex items-center justify-between"><div><p className="font-semibold text-slate-100 text-sm">{trip.name}</p><p className="text-xs text-slate-400">{trip.dates}</p></div><span className="text-slate-400">{open===ti?"▲":"▼"}</span></button>{open===ti&&<div className="mt-4 space-y-4"><div className="space-y-1.5">{trip.items.map((d,i)=><div key={i} className="flex items-center gap-2.5"><span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded ${trip.badge} flex-shrink-0`}>{d.date}</span><p className="text-sm text-slate-200">{d.event}</p></div>)}</div><div><p className="text-xs uppercase tracking-widest text-slate-500 mb-2">To Do</p><div className="space-y-1.5">{(tripTodos[ti]||[]).map(t=><button key={t.id} onClick={()=>tog(ti,t.id)} className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-left ${t.done?"opacity-40 border-slate-800":"border-slate-700/60 bg-slate-800/30"}`}><span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${t.done?"bg-emerald-500 border-emerald-500":"border-slate-500"}`}>{t.done&&<svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}</span><span className={`text-xs ${t.done?"line-through text-slate-600":"text-slate-300"}`}>{t.text}</span></button>)}</div></div></div>}</div>)}</div></div>);}
+function TravelsTab({tripTodos,onUpdate}){const[open,setOpen]=useState(0);const tog=(ti,id)=>onUpdate(tripTodos.map((arr,i)=>i===ti?arr.map(t=>t.id===id?{...t,done:!t.done}:t):arr));return(<div className="space-y-5"><div className="space-y-3">{TRIPS.map((trip,ti)=><div key={ti} className={`rounded-2xl border p-4 ${trip.color}`}><button onClick={()=>setOpen(open===ti?-1:ti)} className="w-full flex items-center justify-between"><div><p className="font-semibold text-slate-100 text-sm">{trip.name}</p><p className="text-xs text-slate-400">{trip.dates}</p></div><span className="text-slate-400">{open===ti?"▲":"▼"}</span></button>{open===ti&&<div className="mt-4 space-y-4"><div className="space-y-1.5">{trip.items.map((d,i)=><div key={i} className="flex items-center gap-2.5"><span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded ${trip.badge} flex-shrink-0`}>{d.date}</span><p className="text-sm text-slate-200">{d.event}</p></div>)}</div><div><p className="text-xs uppercase tracking-widest text-slate-500 mb-2">To Do</p><div className="space-y-1.5">{(tripTodos[ti]||[]).map(t=><button key={t.id} onClick={()=>tog(ti,t.id)} className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-left ${t.done?"opacity-40 border-slate-800":"border-slate-700/60 bg-slate-800/30"}`}><span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${t.done?"bg-emerald-500 border-emerald-500":"border-slate-500"}`}>{t.done&&<svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}</span><span className={`text-xs ${t.done?"line-through text-slate-600":"text-slate-300"}`}>{t.text}</span></button>)}</div></div></div>}</div>)}</div></div>);}
 
 function PregnancyTab({todos,buyList,onTodosUpdate,onBuyUpdate}){
   const[pTab,setPTab]=useState("todos");
@@ -1226,7 +888,6 @@ function PregnancyTab({todos,buyList,onTodosUpdate,onBuyUpdate}){
   const priorityBadge={high:"text-rose-400",med:"text-amber-400",low:"text-slate-500"};
   return(
     <div className="space-y-5">
-      <ChatPanel tabId="pregnancy"/>
       <div className="bg-pink-500/10 border border-pink-500/30 rounded-2xl px-4 py-3 flex items-center gap-3">
         <span className="text-3xl">🤰</span>
         <div><p className="font-bold text-pink-200">Week 20 — Halfway! 🎉</p><p className="text-xs text-pink-300/70">Size of a banana · ~10 inches · Anatomy scan time!</p></div>
@@ -1267,13 +928,13 @@ function PregnancyTab({todos,buyList,onTodosUpdate,onBuyUpdate}){
   );
 }
 
-function RoutineTab({checked,workouts,onCheckedUpdate,onWorkoutsUpdate}){const today=new Date().toLocaleDateString("en-US",{weekday:"long"});const[sel,setSel]=useState(DAYS.includes(today)?today:"Monday");const[showF,setShowF]=useState(false);const[form,setForm]=useState({date:new Date().toISOString().split("T")[0],type:"",duration:"",notes:""});const key=(d,i)=>`${d}-${i}`;const tog=(d,i)=>onCheckedUpdate({...checked,[key(d,i)]:!checked[key(d,i)]});const tasks=ROUTINE[sel]||[];const done=tasks.filter((_,i)=>checked[key(sel,i)]).length;const addW=()=>{if(!form.type.trim())return;onWorkoutsUpdate([{...form,id:Date.now()},...workouts]);setForm({date:new Date().toISOString().split("T")[0],type:"",duration:"",notes:""});setShowF(false);};return(<div className="space-y-5"><ChatPanel tabId="routine"/><div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">{DAYS.map(d=><button key={d} onClick={()=>setSel(d)} className={`flex-shrink-0 px-2 py-1.5 text-xs rounded-lg ${sel===d?"bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold":"text-slate-500 hover:text-slate-300 border border-transparent"}`}>{d.slice(0,3)}</button>)}</div><div className="flex justify-between items-center"><h3 className="text-sm font-semibold text-slate-200">{sel}</h3><span className="text-xs text-slate-500">{done}/{tasks.length}</span></div><div className="h-1.5 bg-slate-800 rounded-full"><div className="h-1.5 bg-rose-500 rounded-full" style={{width:tasks.length?`${(done/tasks.length)*100}%`:"0%"}}/></div><div className="space-y-1.5">{tasks.map((task,i)=>{const isDone=checked[key(sel,i)];const time=task.split(" ")[0];const desc=task.slice(time.length+1);return(<button key={i} onClick={()=>tog(sel,i)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left ${isDone?"border-slate-800 opacity-40":"border-slate-700 bg-slate-800/30 hover:border-rose-400/30"}`}><span className="text-xs font-mono text-slate-600 w-10 flex-shrink-0">{time}</span><span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${isDone?"bg-emerald-500 border-emerald-500":"border-slate-600"}`}>{isDone&&<svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}</span><span className={`text-sm flex-1 ${isDone?"line-through text-slate-600":"text-slate-300"}`}>{desc}</span></button>);})}</div><div><div className="flex items-center justify-between mb-3"><h3 className="text-xs uppercase tracking-widest text-slate-500 font-semibold">Workout Log</h3><button onClick={()=>setShowF(!showF)} className="px-3 py-1.5 bg-rose-900/30 hover:bg-rose-900/50 border border-rose-700/40 text-rose-400 rounded-xl text-xs font-medium">+ Log</button></div>{showF&&<div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-2.5 mb-3"><div className="flex gap-2"><input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none"/><input value={form.duration} onChange={e=>setForm(f=>({...f,duration:e.target.value}))} placeholder="Duration" className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/></div><input value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} placeholder="Workout type…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><input value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Notes (optional)" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><div className="flex gap-2"><button onClick={addW} disabled={!form.type} className="flex-1 py-2 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-30 border border-rose-500/40 text-rose-300 rounded-xl text-sm font-semibold">Save</button><button onClick={()=>setShowF(false)} className="px-4 py-2 bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm">Cancel</button></div></div>}{workouts.length===0?<p className="text-xs text-slate-700 italic px-1">No workouts logged yet 💪</p>:<div className="space-y-2">{workouts.slice(0,8).map(l=><div key={l.id} className="flex items-start gap-3 px-3 py-3 rounded-xl border border-slate-700 bg-slate-800/30 group"><div className="flex-1"><div className="flex items-center gap-2"><p className="text-sm font-semibold text-slate-200">{l.type}</p>{l.duration&&<span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{l.duration}</span>}</div><p className="text-xs text-slate-500 mt-0.5">{l.date}</p>{l.notes&&<p className="text-xs text-slate-400 mt-1">{l.notes}</p>}</div><button onClick={()=>onWorkoutsUpdate(workouts.filter(x=>x.id!==l.id))} className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-rose-400 text-lg">×</button></div>)}</div>}</div></div>);}
+function RoutineTab({checked,workouts,onCheckedUpdate,onWorkoutsUpdate}){const today=new Date().toLocaleDateString("en-US",{weekday:"long"});const[sel,setSel]=useState(DAYS.includes(today)?today:"Monday");const[showF,setShowF]=useState(false);const[form,setForm]=useState({date:new Date().toISOString().split("T")[0],type:"",duration:"",notes:""});const key=(d,i)=>`${d}-${i}`;const tog=(d,i)=>onCheckedUpdate({...checked,[key(d,i)]:!checked[key(d,i)]});const tasks=ROUTINE[sel]||[];const done=tasks.filter((_,i)=>checked[key(sel,i)]).length;const addW=()=>{if(!form.type.trim())return;onWorkoutsUpdate([{...form,id:Date.now()},...workouts]);setForm({date:new Date().toISOString().split("T")[0],type:"",duration:"",notes:""});setShowF(false);};return(<div className="space-y-5"><div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">{DAYS.map(d=><button key={d} onClick={()=>setSel(d)} className={`flex-shrink-0 px-2 py-1.5 text-xs rounded-lg ${sel===d?"bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold":"text-slate-500 hover:text-slate-300 border border-transparent"}`}>{d.slice(0,3)}</button>)}</div><div className="flex justify-between items-center"><h3 className="text-sm font-semibold text-slate-200">{sel}</h3><span className="text-xs text-slate-500">{done}/{tasks.length}</span></div><div className="h-1.5 bg-slate-800 rounded-full"><div className="h-1.5 bg-rose-500 rounded-full" style={{width:tasks.length?`${(done/tasks.length)*100}%`:"0%"}}/></div><div className="space-y-1.5">{tasks.map((task,i)=>{const isDone=checked[key(sel,i)];const time=task.split(" ")[0];const desc=task.slice(time.length+1);return(<button key={i} onClick={()=>tog(sel,i)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left ${isDone?"border-slate-800 opacity-40":"border-slate-700 bg-slate-800/30 hover:border-rose-400/30"}`}><span className="text-xs font-mono text-slate-600 w-10 flex-shrink-0">{time}</span><span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${isDone?"bg-emerald-500 border-emerald-500":"border-slate-600"}`}>{isDone&&<svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}</span><span className={`text-sm flex-1 ${isDone?"line-through text-slate-600":"text-slate-300"}`}>{desc}</span></button>);})}</div><div><div className="flex items-center justify-between mb-3"><h3 className="text-xs uppercase tracking-widest text-slate-500 font-semibold">Workout Log</h3><button onClick={()=>setShowF(!showF)} className="px-3 py-1.5 bg-rose-900/30 hover:bg-rose-900/50 border border-rose-700/40 text-rose-400 rounded-xl text-xs font-medium">+ Log</button></div>{showF&&<div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-2.5 mb-3"><div className="flex gap-2"><input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none"/><input value={form.duration} onChange={e=>setForm(f=>({...f,duration:e.target.value}))} placeholder="Duration" className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/></div><input value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} placeholder="Workout type…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><input value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Notes (optional)" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><div className="flex gap-2"><button onClick={addW} disabled={!form.type} className="flex-1 py-2 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-30 border border-rose-500/40 text-rose-300 rounded-xl text-sm font-semibold">Save</button><button onClick={()=>setShowF(false)} className="px-4 py-2 bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm">Cancel</button></div></div>}{workouts.length===0?<p className="text-xs text-slate-700 italic px-1">No workouts logged yet 💪</p>:<div className="space-y-2">{workouts.slice(0,8).map(l=><div key={l.id} className="flex items-start gap-3 px-3 py-3 rounded-xl border border-slate-700 bg-slate-800/30 group"><div className="flex-1"><div className="flex items-center gap-2"><p className="text-sm font-semibold text-slate-200">{l.type}</p>{l.duration&&<span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{l.duration}</span>}</div><p className="text-xs text-slate-500 mt-0.5">{l.date}</p>{l.notes&&<p className="text-xs text-slate-400 mt-1">{l.notes}</p>}</div><button onClick={()=>onWorkoutsUpdate(workouts.filter(x=>x.id!==l.id))} className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-rose-400 text-lg">×</button></div>)}</div>}</div></div>);}
 
-function ReadingTab({currentBook,readingLog,wishlist,onUpdate}){const[tab,setTab]=useState("current");const[nw,setNw]=useState("");const[lf,setLf]=useState({date:new Date().toISOString().split("T")[0],pages:"",notes:""});const addW=()=>{if(nw.trim()){onUpdate("wishlist",[...wishlist,{id:Date.now(),title:nw.trim(),added:new Date().toLocaleDateString()}]);setNw("");}};const addL=()=>{if(!lf.pages)return;onUpdate("readingLog",[{...lf,id:Date.now()},...readingLog]);setLf({date:new Date().toISOString().split("T")[0],pages:"",notes:""});};return(<div className="space-y-5"><ChatPanel tabId="reading"/><div className="flex gap-2"><div className="flex-1 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 text-center"><p className="text-lg font-bold text-amber-400">{readingLog.length}</p><p className="text-xs text-slate-500">Sessions</p></div><div className="flex-1 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 text-center"><p className="text-lg font-bold text-amber-400">{readingLog.reduce((s,l)=>s+(parseInt(l.pages)||0),0)}</p><p className="text-xs text-slate-500">Pages</p></div><div className="flex-1 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 text-center"><p className="text-lg font-bold text-amber-400">{wishlist.length}</p><p className="text-xs text-slate-500">Want to read</p></div></div><div className="flex gap-1">{[["current","📖 Current"],["log","📝 Log"],["wishlist","🔖 Wishlist"]].map(([t,l])=><button key={t} onClick={()=>setTab(t)} className={`flex-1 py-2 text-xs rounded-xl border ${tab===t?"bg-amber-500/20 border-amber-500/40 text-amber-300 font-semibold":"border-slate-700 text-slate-500 hover:text-slate-300"}`}>{l}</button>)}</div>{tab==="current"&&<div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3"><input value={currentBook.title} onChange={e=>onUpdate("currentBook",{...currentBook,title:e.target.value})} placeholder="Book title…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><input value={currentBook.author} onChange={e=>onUpdate("currentBook",{...currentBook,author:e.target.value})} placeholder="Author…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><div className="flex gap-2"><input value={currentBook.pages} onChange={e=>onUpdate("currentBook",{...currentBook,pages:e.target.value})} placeholder="Total pages" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><input type="date" value={currentBook.startDate} onChange={e=>onUpdate("currentBook",{...currentBook,startDate:e.target.value})} className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none"/></div><textarea value={currentBook.notes} onChange={e=>onUpdate("currentBook",{...currentBook,notes:e.target.value})} placeholder="Notes / thoughts…" rows={3} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none resize-none"/></div>}{tab==="log"&&<div className="space-y-3"><div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3"><div className="flex gap-2"><input type="date" value={lf.date} onChange={e=>setLf(f=>({...f,date:e.target.value}))} className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none"/><input value={lf.pages} onChange={e=>setLf(f=>({...f,pages:e.target.value}))} placeholder="Pages" type="number" className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/></div><input value={lf.notes} onChange={e=>setLf(f=>({...f,notes:e.target.value}))} placeholder="Quick note…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><button onClick={addL} disabled={!lf.pages} className="w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-30 border border-amber-500/40 text-amber-300 rounded-xl text-sm font-semibold">Log Session</button></div><div className="space-y-1.5">{readingLog.slice(0,10).map(l=><div key={l.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-700 bg-slate-800/30"><div className="flex-1"><p className="text-sm text-slate-200">{l.pages} pages</p>{l.notes&&<p className="text-xs text-slate-500">{l.notes}</p>}</div><span className="text-xs text-slate-600">{l.date}</span></div>)}{readingLog.length===0&&<p className="text-xs text-slate-700 italic px-1">No sessions logged yet</p>}</div></div>}{tab==="wishlist"&&<div className="space-y-3"><div className="flex gap-2"><input value={nw} onChange={e=>setNw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addW()} placeholder="Add book title…" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-400/50"/><button onClick={addW} className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-xl text-sm font-bold">+</button></div><div className="space-y-2">{wishlist.map(b=><div key={b.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-700 bg-slate-800/30 group"><span className="text-amber-400">🔖</span><div className="flex-1"><p className="text-sm text-slate-200">{b.title}</p><p className="text-xs text-slate-600">Added {b.added}</p></div><button onClick={()=>onUpdate("wishlist",wishlist.filter(x=>x.id!==b.id))} className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-rose-400 text-lg">×</button></div>)}{wishlist.length===0&&<p className="text-xs text-slate-700 italic px-1">No books yet</p>}</div></div>}</div>);}
+function ReadingTab({currentBook,readingLog,wishlist,onUpdate}){const[tab,setTab]=useState("current");const[nw,setNw]=useState("");const[lf,setLf]=useState({date:new Date().toISOString().split("T")[0],pages:"",notes:""});const addW=()=>{if(nw.trim()){onUpdate("wishlist",[...wishlist,{id:Date.now(),title:nw.trim(),added:new Date().toLocaleDateString()}]);setNw("");}};const addL=()=>{if(!lf.pages)return;onUpdate("readingLog",[{...lf,id:Date.now()},...readingLog]);setLf({date:new Date().toISOString().split("T")[0],pages:"",notes:""});};return(<div className="space-y-5"><div className="flex gap-2"><div className="flex-1 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 text-center"><p className="text-lg font-bold text-amber-400">{readingLog.length}</p><p className="text-xs text-slate-500">Sessions</p></div><div className="flex-1 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 text-center"><p className="text-lg font-bold text-amber-400">{readingLog.reduce((s,l)=>s+(parseInt(l.pages)||0),0)}</p><p className="text-xs text-slate-500">Pages</p></div><div className="flex-1 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 text-center"><p className="text-lg font-bold text-amber-400">{wishlist.length}</p><p className="text-xs text-slate-500">Want to read</p></div></div><div className="flex gap-1">{[["current","📖 Current"],["log","📝 Log"],["wishlist","🔖 Wishlist"]].map(([t,l])=><button key={t} onClick={()=>setTab(t)} className={`flex-1 py-2 text-xs rounded-xl border ${tab===t?"bg-amber-500/20 border-amber-500/40 text-amber-300 font-semibold":"border-slate-700 text-slate-500 hover:text-slate-300"}`}>{l}</button>)}</div>{tab==="current"&&<div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3"><input value={currentBook.title} onChange={e=>onUpdate("currentBook",{...currentBook,title:e.target.value})} placeholder="Book title…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><input value={currentBook.author} onChange={e=>onUpdate("currentBook",{...currentBook,author:e.target.value})} placeholder="Author…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><div className="flex gap-2"><input value={currentBook.pages} onChange={e=>onUpdate("currentBook",{...currentBook,pages:e.target.value})} placeholder="Total pages" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><input type="date" value={currentBook.startDate} onChange={e=>onUpdate("currentBook",{...currentBook,startDate:e.target.value})} className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none"/></div><textarea value={currentBook.notes} onChange={e=>onUpdate("currentBook",{...currentBook,notes:e.target.value})} placeholder="Notes / thoughts…" rows={3} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none resize-none"/></div>}{tab==="log"&&<div className="space-y-3"><div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3"><div className="flex gap-2"><input type="date" value={lf.date} onChange={e=>setLf(f=>({...f,date:e.target.value}))} className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none"/><input value={lf.pages} onChange={e=>setLf(f=>({...f,pages:e.target.value}))} placeholder="Pages" type="number" className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/></div><input value={lf.notes} onChange={e=>setLf(f=>({...f,notes:e.target.value}))} placeholder="Quick note…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><button onClick={addL} disabled={!lf.pages} className="w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-30 border border-amber-500/40 text-amber-300 rounded-xl text-sm font-semibold">Log Session</button></div><div className="space-y-1.5">{readingLog.slice(0,10).map(l=><div key={l.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-700 bg-slate-800/30"><div className="flex-1"><p className="text-sm text-slate-200">{l.pages} pages</p>{l.notes&&<p className="text-xs text-slate-500">{l.notes}</p>}</div><span className="text-xs text-slate-600">{l.date}</span></div>)}{readingLog.length===0&&<p className="text-xs text-slate-700 italic px-1">No sessions logged yet</p>}</div></div>}{tab==="wishlist"&&<div className="space-y-3"><div className="flex gap-2"><input value={nw} onChange={e=>setNw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addW()} placeholder="Add book title…" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-400/50"/><button onClick={addW} className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-xl text-sm font-bold">+</button></div><div className="space-y-2">{wishlist.map(b=><div key={b.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-700 bg-slate-800/30 group"><span className="text-amber-400">🔖</span><div className="flex-1"><p className="text-sm text-slate-200">{b.title}</p><p className="text-xs text-slate-600">Added {b.added}</p></div><button onClick={()=>onUpdate("wishlist",wishlist.filter(x=>x.id!==b.id))} className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-rose-400 text-lg">×</button></div>)}{wishlist.length===0&&<p className="text-xs text-slate-700 italic px-1">No books yet</p>}</div></div>}</div>);}
 
-function HabitsTab({habits,habitLog,onHabitsUpdate,onLogUpdate}){const today=new Date().toISOString().split("T")[0];const[selDate,setSelDate]=useState(today);const todayLog=habitLog[selDate]||{};const[newH,setNewH]=useState("");const[showAdd,setShowAdd]=useState(false);const COLORS=["rose","emerald","amber","sky","violet","pink"];const[ci,setCi]=useState(0);const tog=id=>onLogUpdate({...habitLog,[selDate]:{...todayLog,[id]:!todayLog[id]}});const addH=()=>{if(!newH.trim())return;onHabitsUpdate([...habits,{id:Date.now(),label:newH.trim(),color:COLORS[ci%COLORS.length]}]);setNewH("");setShowAdd(false);};const last7=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);const k=d.toISOString().split("T")[0];const l=habitLog[k]||{};const done=habits.filter(h=>l[h.id]).length;return{k,done,total:habits.length,label:d.toLocaleDateString("en-US",{weekday:"short"})};});return(<div className="space-y-5"><ChatPanel tabId="habits"/><div className="flex gap-2 items-end">{last7.map((d,i)=>{const pct=d.total>0?(d.done/d.total)*100:0;const isT=d.k===today;return(<div key={i} className="flex-1 flex flex-col items-center gap-1"><div className="w-full bg-slate-800 rounded-lg overflow-hidden" style={{height:"40px"}}><div className="w-full rounded-lg" style={{height:`${pct}%`,background:pct===100?"#10b981":pct>50?"#f59e0b":"#475569",marginTop:`${100-pct}%`}}/></div><p className={`text-xs ${isT?"text-rose-400 font-bold":"text-slate-600"}`}>{d.label}</p></div>);})}</div><p className="text-xs text-slate-500 text-center">{habits.filter(h=>todayLog[h.id]).length}/{habits.length} done today</p><input type="date" value={selDate} onChange={e=>setSelDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none"/><div className="space-y-2">{habits.map(h=>{const done=todayLog[h.id];const bc=HABIT_BORDERS[h.color]||"border-slate-500/40 text-slate-300";const bg=HABIT_COLORS[h.color]||"bg-slate-500";return(<button key={h.id} onClick={()=>tog(h.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-left ${done?`${bc} bg-white/5`:"border-slate-700 bg-slate-800/30"}`}><div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 ${done?`${bg} border-transparent`:"border-slate-600"}`}>{done&&<svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}</div><span className={`text-sm flex-1 ${done?"text-slate-300 line-through":"text-slate-200"}`}>{h.label}</span>{done&&<span className="text-xs text-emerald-400">✓</span>}</button>);})}</div>{showAdd?<div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3"><input value={newH} onChange={e=>setNewH(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addH()} placeholder="New habit…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><div className="flex gap-1.5">{COLORS.map((c,i)=><button key={c} onClick={()=>setCi(i)} className={`w-6 h-6 rounded-full ${HABIT_COLORS[c]} ${ci===i?"ring-2 ring-white ring-offset-2 ring-offset-slate-800":""}`}/>)}</div><div className="flex gap-2"><button onClick={addH} className="flex-1 py-2 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 rounded-xl text-sm font-semibold">Add</button><button onClick={()=>setShowAdd(false)} className="px-4 py-2 bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm">Cancel</button></div></div>:<button onClick={()=>setShowAdd(true)} className="w-full py-2.5 border border-dashed border-slate-700 text-slate-600 hover:text-slate-400 hover:border-slate-500 rounded-2xl text-sm">+ Add habit</button>}</div>);}
+function HabitsTab({habits,habitLog,onHabitsUpdate,onLogUpdate}){const today=new Date().toISOString().split("T")[0];const[selDate,setSelDate]=useState(today);const todayLog=habitLog[selDate]||{};const[newH,setNewH]=useState("");const[showAdd,setShowAdd]=useState(false);const COLORS=["rose","emerald","amber","sky","violet","pink"];const[ci,setCi]=useState(0);const tog=id=>onLogUpdate({...habitLog,[selDate]:{...todayLog,[id]:!todayLog[id]}});const addH=()=>{if(!newH.trim())return;onHabitsUpdate([...habits,{id:Date.now(),label:newH.trim(),color:COLORS[ci%COLORS.length]}]);setNewH("");setShowAdd(false);};const last7=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);const k=d.toISOString().split("T")[0];const l=habitLog[k]||{};const done=habits.filter(h=>l[h.id]).length;return{k,done,total:habits.length,label:d.toLocaleDateString("en-US",{weekday:"short"})};});return(<div className="space-y-5"><div className="flex gap-2 items-end">{last7.map((d,i)=>{const pct=d.total>0?(d.done/d.total)*100:0;const isT=d.k===today;return(<div key={i} className="flex-1 flex flex-col items-center gap-1"><div className="w-full bg-slate-800 rounded-lg overflow-hidden" style={{height:"40px"}}><div className="w-full rounded-lg" style={{height:`${pct}%`,background:pct===100?"#10b981":pct>50?"#f59e0b":"#475569",marginTop:`${100-pct}%`}}/></div><p className={`text-xs ${isT?"text-rose-400 font-bold":"text-slate-600"}`}>{d.label}</p></div>);})}</div><p className="text-xs text-slate-500 text-center">{habits.filter(h=>todayLog[h.id]).length}/{habits.length} done today</p><input type="date" value={selDate} onChange={e=>setSelDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none"/><div className="space-y-2">{habits.map(h=>{const done=todayLog[h.id];const bc=HABIT_BORDERS[h.color]||"border-slate-500/40 text-slate-300";const bg=HABIT_COLORS[h.color]||"bg-slate-500";return(<button key={h.id} onClick={()=>tog(h.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-left ${done?`${bc} bg-white/5`:"border-slate-700 bg-slate-800/30"}`}><div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 ${done?`${bg} border-transparent`:"border-slate-600"}`}>{done&&<svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}</div><span className={`text-sm flex-1 ${done?"text-slate-300 line-through":"text-slate-200"}`}>{h.label}</span>{done&&<span className="text-xs text-emerald-400">✓</span>}</button>);})}</div>{showAdd?<div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3"><input value={newH} onChange={e=>setNewH(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addH()} placeholder="New habit…" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none"/><div className="flex gap-1.5">{COLORS.map((c,i)=><button key={c} onClick={()=>setCi(i)} className={`w-6 h-6 rounded-full ${HABIT_COLORS[c]} ${ci===i?"ring-2 ring-white ring-offset-2 ring-offset-slate-800":""}`}/>)}</div><div className="flex gap-2"><button onClick={addH} className="flex-1 py-2 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 rounded-xl text-sm font-semibold">Add</button><button onClick={()=>setShowAdd(false)} className="px-4 py-2 bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm">Cancel</button></div></div>:<button onClick={()=>setShowAdd(true)} className="w-full py-2.5 border border-dashed border-slate-700 text-slate-600 hover:text-slate-400 hover:border-slate-500 rounded-2xl text-sm">+ Add habit</button>}</div>);}
 
-function GenericTab({tabId,items,notes,onItemsUpdate,onNotesUpdate}){const[input,setInput]=useState("");const add=()=>{if(input.trim()){onItemsUpdate([...items,{id:Date.now(),text:input.trim(),done:false}]);setInput("");}};return(<div className="space-y-5"><ChatPanel tabId={tabId}/><div><h3 className="text-xs uppercase tracking-widest text-slate-500 mb-2 font-semibold">Checklist</h3><div className="flex gap-2 mb-2"><input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} placeholder="Add item…" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-400/50"/><button onClick={add} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 rounded-xl text-sm font-bold">+</button></div>{items.length===0&&<p className="text-xs text-slate-700 italic px-1">No items yet</p>}<div className="space-y-1.5">{items.map(item=><div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-800 bg-slate-800/30 group"><button onClick={()=>onItemsUpdate(items.map(i=>i.id===item.id?{...i,done:!i.done}:i))} className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${item.done?"bg-emerald-500 border-emerald-500":"border-slate-600 hover:border-slate-400"}`}>{item.done&&<svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}</button><span className={`flex-1 text-sm ${item.done?"line-through text-slate-600":"text-slate-300"}`}>{item.text}</span><button onClick={()=>onItemsUpdate(items.filter(i=>i.id!==item.id))} className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-rose-400 text-lg">×</button></div>)}</div></div><div><h3 className="text-xs uppercase tracking-widest text-slate-500 mb-2 font-semibold">Notes</h3><textarea value={notes} onChange={e=>onNotesUpdate(e.target.value)} rows={4} placeholder="Jot anything down…" className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-300 placeholder-slate-700 focus:outline-none focus:border-rose-400/40 resize-none leading-relaxed"/></div></div>);}
+function GenericTab({tabId,items,notes,onItemsUpdate,onNotesUpdate}){const[input,setInput]=useState("");const add=()=>{if(input.trim()){onItemsUpdate([...items,{id:Date.now(),text:input.trim(),done:false}]);setInput("");}};return(<div className="space-y-5"><div><h3 className="text-xs uppercase tracking-widest text-slate-500 mb-2 font-semibold">Checklist</h3><div className="flex gap-2 mb-2"><input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} placeholder="Add item…" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-400/50"/><button onClick={add} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 rounded-xl text-sm font-bold">+</button></div>{items.length===0&&<p className="text-xs text-slate-700 italic px-1">No items yet</p>}<div className="space-y-1.5">{items.map(item=><div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-800 bg-slate-800/30 group"><button onClick={()=>onItemsUpdate(items.map(i=>i.id===item.id?{...i,done:!i.done}:i))} className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${item.done?"bg-emerald-500 border-emerald-500":"border-slate-600 hover:border-slate-400"}`}>{item.done&&<svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}</button><span className={`flex-1 text-sm ${item.done?"line-through text-slate-600":"text-slate-300"}`}>{item.text}</span><button onClick={()=>onItemsUpdate(items.filter(i=>i.id!==item.id))} className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-rose-400 text-lg">×</button></div>)}</div></div><div><h3 className="text-xs uppercase tracking-widest text-slate-500 mb-2 font-semibold">Notes</h3><textarea value={notes} onChange={e=>onNotesUpdate(e.target.value)} rows={4} placeholder="Jot anything down…" className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-300 placeholder-slate-700 focus:outline-none focus:border-rose-400/40 resize-none leading-relaxed"/></div></div>);}
 
 // ── APP ───────────────────────────────────────────────────────────────────────
 export default function App(){
