@@ -13,8 +13,6 @@ const TABS = [
   { id: "cooking", label: "🍳 Meals" },
   { id: "grocery", label: "🛒 Grocery" },
   { id: "pregnancy", label: "🤰 Baby" },
-  { id: "habits", label: "🎯 Habits" },
-  { id: "sidejob", label: "💼 Side Job" },
 ];
 
 // Real events from Daia's Calendar (daianapartiu@gmail.com) — fetched May 18 2026
@@ -339,8 +337,9 @@ const DEFAULT_DATA={
   tripTodos:TRIPS.map(t=>t.todos.map((text,i)=>({id:i,text,done:false}))),
   tripDates:TRIPS.map(t=>({name:t.name,start:t.start,end:t.end})),
   tripPacking:TRIPS.map((t,ti)=>t.packing.map((item,i)=>({id:`${ti}-${i}`,text:item,checked:false}))),
+  standardPackingList: [],
   routineChecked:{},workouts:[],
-  sidejobNotes:"",sidejobItems:[],
+  majorTodos:[],
   mealPlan:DEFAULT_MEAL_PLAN,
   groceryList:DEFAULT_WEEKLY_GROCERY_LIST,
   dailyPriorities:{},
@@ -447,15 +446,240 @@ function CalendarTab(){
   );
 }
 
-// ── MEALS + GROCERY TAB (stubbed for build) ─────────────────────────────────────────────────
-function MealsTab({mealPlan,onMealUpdate}){
-  // Temporarily simplified to avoid parsing issues. Restore full UI later.
+// ── MEALS + GROCERY TAB ─────────────────────────────────────────────────
+function MealsTab({mealPlan,groceryList,onMealUpdate,onGroceryUpdate}){
+  const [view,setView]=useState("meals");
+  const [editDay,setEditDay]=useState(null);
+  const [editMealType,setEditMealType]=useState(null);
+  const [draftName,setDraftName]=useState("");
+  const [draftIngredients,setDraftIngredients]=useState("");
+  const [draftIngredientList,setDraftIngredientList]=useState([]);
+  const [draftPrepTime,setDraftPrepTime]=useState("");
+  const [draftRecipeLink,setDraftRecipeLink]=useState("");
+  const [draftNotes,setDraftNotes]=useState("");
+  const [repeatTomorrow,setRepeatTomorrow]=useState(false);
+  const [newGroceryItem,setNewGroceryItem]=useState("");
+  const [importLoading,setImportLoading]=useState(false);
+  const [importError,setImportError]=useState("");
+
+  const editIndex = DAYS.indexOf(editDay);
+  const nextDay = editIndex >= 0 && editIndex < DAYS.length - 1 ? DAYS[editIndex + 1] : null;
+
+  useEffect(()=>{
+    if(editDay && editMealType){
+      const meal = mealPlan[editDay]?.[editMealType] || {name:"",ingredients:[],prepTime:"",recipeLink:"",notes:""};
+      setDraftName(meal.name||"");
+      setDraftIngredientList(meal.ingredients||[]);
+      setDraftIngredients("");
+      setDraftPrepTime(meal.prepTime||"");
+      setDraftRecipeLink(meal.recipeLink||"");
+      setDraftNotes(meal.notes||"");
+      setRepeatTomorrow(false);
+      setImportError("");
+    }
+  },[editDay,editMealType,mealPlan]);
+
+  const saveMeal=(day,type,name,ingredients,copyNext=false)=>{
+    const nextState={
+      ...mealPlan,
+      [day]:{
+        ...mealPlan[day],
+        [type]:{name,ingredients,prepTime:draftPrepTime,recipeLink:draftRecipeLink,notes:draftNotes},
+      },
+    };
+    if(copyNext && nextDay){
+      nextState[nextDay] = {
+        ...mealPlan[nextDay],
+        [type]:{name,ingredients,prepTime:draftPrepTime,recipeLink:draftRecipeLink,notes:draftNotes},
+      };
+    }
+    onMealUpdate(nextState);
+    setEditDay(null);
+    setEditMealType(null);
+  };
+
+  const addDraftIngredient=()=>{
+    if(!draftIngredients.trim()) return;
+    setDraftIngredientList(prev=>[...prev,draftIngredients.trim()]);
+    setDraftIngredients("");
+  };
+
+  const removeDraftIngredient=ing=>setDraftIngredientList(prev=>prev.filter(i=>i!==ing));
+
+  const importRecipe=async()=>{
+    const urlText=draftRecipeLink.trim();
+    if(!urlText){setImportError("Paste a valid recipe URL first.");return;}
+    let url;
+    try{url=new URL(urlText);}catch{setImportError("Please use a valid URL.");return;}
+    setImportLoading(true);
+    setImportError("");
+    try{
+      const res=await fetch(url.toString());
+      if(!res.ok)throw new Error("Fetch failed");
+      const html=await res.text();
+      const titleMatch=html.match(/<title>([^<]+)<\/title>/i);
+      const name=titleMatch?.[1]?.replace(/[-|•|·].*$/," ").trim();
+      const ingredientMatches=Array.from(html.matchAll(/<li[^>]*>([^<]*(?:cup|tbsp|tsp|tablespoon|teaspoon|ounce|oz|grams|g|kg|pinch|slice|clove|can|package)[^<]*)<\/li>/gi)).map(m=>m[1].trim());
+      const ingredients = ingredientMatches.length ? [...new Set(ingredientMatches)].slice(0,12) : [];
+      const stripped=html.replace(/<script[\s\S]*?<\/script>/gi,"").replace(/<style[\s\S]*?<\/style>/gi,"").replace(/<[^>]+>/g," ");
+      const timeMatch=stripped.match(/([0-9]{1,2}\s*(?:minutes|minute|mins|hours|hour|hrs|hr))/i);
+      if(name && !draftName.trim()) setDraftName(name);
+      if(ingredients.length) setDraftIngredientList(ingredients);
+      if(timeMatch) setDraftPrepTime(timeMatch[1]);
+      if(!ingredients.length){
+        const fallbackMatches=Array.from(stripped.matchAll(/([0-9]+(?:\.\d+)?\s*(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|grams?|g|kg|pinch|slice|slices|can|cans|package|packages))/gi)).map(m=>m[0].trim());
+        if(fallbackMatches.length) setDraftIngredientList([...new Set(fallbackMatches)].slice(0,12));
+      }
+      setDraftNotes(`Imported from ${url.hostname}`);
+    }catch(err){
+      setImportError("Unable to import from that link. You can still save the recipe manually.");
+    }finally{setImportLoading(false);}
+  };
+
   return (
     <div className="space-y-5">
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
-        <p className="text-sm font-semibold text-amber-200">Meals (temporarily disabled)</p>
-        <p className="text-xs text-slate-400 mt-1">Meal editor is being updated. Check back soon.</p>
+      <div className="flex gap-1">
+        {[ ["meals","🍽️ Daily Meals"],["grocery","🛒 Grocery List"]].map(([t,l])=>(
+          <button key={t} onClick={()=>setView(t)} className={`flex-1 py-2 text-xs rounded-xl border transition-all ${view===t?"bg-amber-500/20 border-amber-500/40 text-amber-300 font-semibold":"border-slate-700 text-slate-500 hover:text-slate-300"}`}>
+            {l}
+          </button>
+        ))}
       </div>
+
+      {view==="meals" && (
+        <div className="space-y-4">
+          {DAYS.map(day=>{
+            const dayMeals=mealPlan[day]||{};
+            const isToday=day===new Date().toLocaleDateString("en-US",{weekday:"long"});
+            return (
+              <div key={day} className={`rounded-2xl border p-4 ${isToday?"bg-amber-500/10 border-amber-500/30":"bg-slate-800/30 border-slate-700"}`}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <p className={`text-sm font-bold ${isToday?"text-amber-300":"text-slate-200"}`}>{day}{isToday?" (today)":""}</p>
+                  <p className="text-xs text-slate-500">Edit recipes and repeat them for the next day.</p>
+                </div>
+                {['breakfast','lunch','dinner'].map(mealType=>{
+                  const meal=dayMeals[mealType]||{name:'',ingredients:[],prepTime:'',recipeLink:'',notes:''};
+                  const nutrition=calculateNutrition(meal.ingredients||[]);
+                  const isEditing=editDay===day && editMealType===mealType;
+                  return (
+                    <div key={mealType} className="mb-3 last:mb-0 border border-slate-700 rounded-xl p-3 bg-slate-900/40">
+                      <div className="flex items-center justify-between mb-2 gap-3">
+                        <p className="text-xs font-bold uppercase text-slate-400">{mealType}</p>
+                        {!isEditing ? (
+                          <button onClick={()=>{setEditDay(day); setEditMealType(mealType);}} className="text-xs text-slate-500 hover:text-slate-300">✎ Edit</button>
+                        ) : (
+                          <button onClick={()=>{setEditDay(null); setEditMealType(null);}} className="text-xs text-slate-500 hover:text-slate-300">✕ Close</button>
+                        )}
+                      </div>
+                      {!isEditing ? (
+                        <>
+                          <p className="text-sm font-semibold text-slate-100 mb-2">{meal.name || 'No recipe selected'}</p>
+                          {meal.prepTime && <p className="text-xs text-slate-500 mb-2">Time: {meal.prepTime}</p>}
+                          {meal.recipeLink && <a href={meal.recipeLink} target="_blank" rel="noreferrer" className="text-xs text-amber-300 hover:text-amber-200 underline">Recipe source</a>}
+                          <div className="mb-2 text-xs space-y-1">
+                            {meal.ingredients?.length > 0 ? meal.ingredients.map((ing,i)=>(
+                              <div key={i} className="flex items-center gap-2 text-slate-500"><span>•</span><span>{ing}</span></div>
+                            )) : <p className="text-slate-500">No ingredients saved yet.</p>}
+                          </div>
+                          {meal.notes && <p className="text-xs text-slate-500 italic">{meal.notes}</p>}
+                          <div className="border-t border-slate-700 pt-2 mt-2 grid grid-cols-5 gap-1 text-xs text-slate-400">
+                            <div><p>Calories</p><p className="font-bold text-amber-300">{Math.round(nutrition.cal)}</p></div>
+                            <div><p>Protein</p><p className="font-bold text-rose-300">{nutrition.protein.toFixed(1)}g</p></div>
+                            <div><p>Sugar</p><p className="font-bold text-pink-300">{nutrition.sugar.toFixed(1)}g</p></div>
+                            <div><p>Sodium</p><p className="font-bold text-sky-300">{Math.round(nutrition.sodium)}mg</p></div>
+                            <div><p>Fiber</p><p className="font-bold text-emerald-300">{nutrition.fiber.toFixed(1)}g</p></div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label className="text-xs uppercase tracking-widest text-slate-500">Recipe name</label>
+                            <input value={draftName} onChange={e=>setDraftName(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-sm text-white focus:outline-none" placeholder="Recipe name" />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs uppercase tracking-widest text-slate-500">Recipe source link</label>
+                            <div className="flex gap-2">
+                              <input value={draftRecipeLink} onChange={e=>setDraftRecipeLink(e.target.value)} placeholder="Paste recipe URL…" className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-sm text-white focus:outline-none" />
+                              <button onClick={importRecipe} disabled={importLoading} className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-xl text-xs font-semibold">{importLoading?"Importing…":"Import"}</button>
+                            </div>
+                            {importError && <p className="text-xs text-rose-400">{importError}</p>}
+                          </div>
+                          <div className="grid gap-2 md:grid-cols-2">
+                            <div className="space-y-1">
+                              <label className="text-xs uppercase tracking-widest text-slate-500">Estimated time</label>
+                              <input value={draftPrepTime} onChange={e=>setDraftPrepTime(e.target.value)} placeholder="e.g. 35 minutes" className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-sm text-white focus:outline-none" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs uppercase tracking-widest text-slate-500">Add ingredient</label>
+                              <div className="flex gap-2">
+                                <input value={draftIngredients} onChange={e=>setDraftIngredients(e.target.value)} onKeyDown={e=>e.key=== 'Enter' && addDraftIngredient()} placeholder="Ingredient…" className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-sm text-white focus:outline-none" />
+                                <button onClick={addDraftIngredient} className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-xl text-xs font-semibold">Add</button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="space-y-2 text-xs">
+                            {draftIngredientList.length > 0 ? draftIngredientList.map((ing,i)=>(
+                              <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700">
+                                <span className="text-slate-300">{ing}</span>
+                                <button onClick={()=>removeDraftIngredient(ing)} className="text-slate-500 hover:text-rose-400 text-xs">Remove</button>
+                              </div>
+                            )) : <p className="text-slate-500">No ingredients yet.</p>}
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs uppercase tracking-widest text-slate-500">Notes</label>
+                            <textarea value={draftNotes} onChange={e=>setDraftNotes(e.target.value)} rows={3} className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-sm text-white focus:outline-none" placeholder="Add quick recipe notes…" />
+                          </div>
+                          {nextDay && (
+                            <label className="flex items-center gap-2 text-xs text-slate-400">
+                              <input type="checkbox" checked={repeatTomorrow} onChange={e=>setRepeatTomorrow(e.target.checked)} className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-amber-500 focus:ring-0" />
+                              <span>Also copy this meal to {nextDay}</span>
+                            </label>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <button onClick={()=>saveMeal(day,mealType,draftName,draftIngredientList,repeatTomorrow)} className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-xl text-sm font-semibold">Save recipe</button>
+                            <button onClick={()=>{setEditDay(null); setEditMealType(null);}} className="px-4 py-2 bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm">Cancel</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {view==="grocery" && (
+        <div className="space-y-4">
+          <button className="w-full py-3 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-2xl text-sm font-semibold transition-colors">
+            ✨ Generate from this week's meals (coming soon)
+          </button>
+
+          <div className="flex gap-2">
+            <input value={newGroceryItem} onChange={e=>setNewGroceryItem(e.target.value)} placeholder="Add item manually…" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-400/50" />
+            <button onClick={()=>{ if (newGroceryItem.trim()) { onGroceryUpdate([...groceryList,{id:Date.now(),text:newGroceryItem.trim(),checked:false,source:'manual'}]); setNewGroceryItem(""); } }} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 rounded-xl text-sm font-bold">+</button>
+          </div>
+
+          {groceryList.length > 0 ? (
+            <div className="space-y-2">
+              {groceryList.map(item=>(
+                <div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/30 group">
+                  <button onClick={()=>onGroceryUpdate(groceryList.map(i=>i.id===item.id?{...i,checked:!i.checked}:i))} className={`w-4 h-4 rounded ${item.checked?"bg-emerald-500 border-emerald-500":"border-2 border-slate-600 hover:border-slate-400"}`} />
+                  <span className={`flex-1 text-sm ${item.checked?"text-slate-500 line-through":"text-slate-300"}`}>{item.text}</span>
+                  <button onClick={()=>onGroceryUpdate(groceryList.filter(i=>i.id!==item.id))} className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-rose-400 text-lg">×</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-700 italic px-1">Start your weekly grocery list by adding items above.</p>
+          )}
+
+          <div className="px-3 py-2 rounded-xl bg-slate-800/40 border border-slate-700/40">
+            <p className="text-xs text-slate-500">🧂 Pantry staples: {PANTRY_STAPLES.join(", ")}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -509,13 +733,46 @@ function DashboardTab({appData,onUpdate}){
   const todayEvents=REAL_CALENDAR_EVENTS.filter(e=>e.date===todayKey);
   const[aiLoad,setAiLoad]=useState(false);
   const[sugg,setSugg]=useState(null);
+  const[newMajorTask,setNewMajorTask]=useState("");
+
+  const homeTodos=appData.majorTodos||[];
+  const tabTodos=[
+    ...(appData.pregnancyTodos||[]).map((t,i)=>({id:t.id,text:t.text,done:t.done,source:"Baby",kind:"pregnancy",index:i})),
+    ...(appData.tripTodos||[]).flatMap((trip,ti)=>((trip||[]).map(t=>({id:t.id,text:t.text,done:t.done,source:appData.tripDates?.[ti]?.name||`Trip ${ti+1}`,kind:"trip",tripIndex:ti,itemId:t.id}))))
+  ];
+
+  const priorityLabels={high:"High",med:"Medium",low:"Low"};
+  const priorityClasses={high:"bg-rose-500/20 border border-rose-500/30 text-rose-300",med:"bg-amber-500/20 border border-amber-500/30 text-amber-300",low:"bg-slate-700/20 border border-slate-600 text-slate-400"};
+  const sourceClasses={home:"bg-rose-500/10 border border-rose-500/20 text-rose-200",pregnancy:"bg-emerald-500/10 border border-emerald-500/20 text-emerald-200",trip:"bg-slate-700/10 border border-slate-600 text-slate-400"};
 
   const savePri=p=>onUpdate("dailyPriorities",{...appData.dailyPriorities,[todayKey]:p});
 
+  const toggleTodo=item=>{
+    if(item.kind==="pregnancy")return onUpdate("pregnancyTodos",(appData.pregnancyTodos||[]).map((t,i)=>i===item.index?{...t,done:!t.done}:t));
+    if(item.kind==="trip")return onUpdate("tripTodos",(appData.tripTodos||[]).map((arr,i)=>i===item.tripIndex?arr.map(t=>t.id===item.itemId?{...t,done:!t.done}:t):arr));
+    if(item.kind==="home")return onUpdate("majorTodos",homeTodos.map(t=>t.id===item.id?{...t,done:!t.done}:t));
+  };
+
+  const addMajorTodo=()=>{
+    const text=newMajorTask.trim();
+    if(!text)return;
+    onUpdate("majorTodos",[...homeTodos,{id:Date.now(),text,done:false,priority:"med"}]);
+    setNewMajorTask("");
+  };
+
+  const removeMajorTodo=id=>onUpdate("majorTodos",homeTodos.filter(t=>t.id!==id));
+  const updateMajorTodo=(id,next)=>onUpdate("majorTodos",homeTodos.map(t=>t.id===id?next(t):t));
+  const moveMajorTodo=(index,dir)=>{
+    const updated=[...homeTodos];
+    const [item]=updated.splice(index,1);
+    updated.splice(index+dir,0,item);
+    onUpdate("majorTodos",updated);
+  };
+
   const getSugg=async()=>{
     setAiLoad(true);
-    const pt=appData.tripTodos.flat().filter(t=>!t.done).slice(0,3).map(t=>t.text).join(", ");
-    const pp=appData.pregnancyTodos.filter(t=>!t.done).slice(0,2).map(t=>t.text).join(", ");
+    const pt=(appData.tripTodos||[]).flat().filter(t=>!t.done).slice(0,3).map(t=>t.text).join(", ");
+    const pp=(appData.pregnancyTodos||[]).filter(t=>!t.done).slice(0,2).map(t=>t.text).join(", ");
     const hasME=["Monday","Wednesday","Friday"].includes(dayName);
     try{
       const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,
@@ -528,7 +785,6 @@ function DashboardTab({appData,onUpdate}){
 
   return(
     <div className="space-y-5">
-      {/* Date banner */}
       <div className="bg-gradient-to-r from-rose-900/30 to-slate-900/30 border border-rose-800/30 rounded-2xl px-5 py-4">
         <p className="text-xs text-slate-500 uppercase tracking-widest">{dayName}</p>
         <p className="text-2xl font-bold text-white">{dateStr}</p>
@@ -538,11 +794,85 @@ function DashboardTab({appData,onUpdate}){
         </div>
       </div>
 
-      {/* Today's meal */}
       <div className="bg-amber-900/20 border border-amber-700/30 rounded-2xl px-4 py-3">
         <p className="text-xs text-amber-400/70 uppercase tracking-widest mb-1">🍽️ Tonight's Dinner</p>
         <p className="text-sm font-semibold text-amber-100">{meal?.meal||"No meal planned"}</p>
         {meal?.note&&<p className="text-xs text-amber-300/60 mt-0.5">{meal.note}</p>}
+      </div>
+
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xs uppercase tracking-widest text-slate-500 font-semibold">Home major to-dos</h3>
+            <p className="text-xs text-slate-400">Add major tasks, mark them done, and reorder what matters most.</p>
+          </div>
+          <span className="text-xs text-slate-500">{homeTodos.length} items</span>
+        </div>
+        <div className="flex gap-2">
+          <input value={newMajorTask} onChange={e=>setNewMajorTask(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMajorTodo()} placeholder="Add a major task…" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none" />
+          <button onClick={addMajorTodo} className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 rounded-xl text-sm font-semibold">Add</button>
+        </div>
+        {homeTodos.length>0 ? (
+          <div className="space-y-2">
+            {homeTodos.map((task,idx)=>(
+              <div key={task.id} className="rounded-2xl border border-slate-700 bg-slate-900/40 p-4">
+                <div className="flex items-start gap-3">
+                  <button onClick={()=>toggleTodo({...task,kind:"home"})} className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${task.done?"bg-emerald-500 border-emerald-500":"border-slate-500"}`}>
+                    {task.done&&<svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm ${task.done?"line-through text-slate-500":"text-slate-200"}`}>{task.text}</p>
+                    <div className="flex flex-wrap gap-2 mt-3 items-center">
+                      <span className={`${priorityClasses[task.priority]} px-2 py-0.5 rounded-full text-[11px]`}>{priorityLabels[task.priority]}</span>
+                      <select value={task.priority} onChange={e=>updateMajorTodo(task.id,t=>({...t,priority:e.target.value}))} className="bg-slate-800 border border-slate-700 rounded-xl px-2 py-1 text-xs text-slate-200 focus:outline-none">
+                        {Object.entries(priorityLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 text-slate-400 text-xs">
+                    <button onClick={()=>moveMajorTodo(idx,-1)} disabled={idx===0} className="px-2 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 disabled:opacity-30">↑</button>
+                    <button onClick={()=>moveMajorTodo(idx,1)} disabled={idx===homeTodos.length-1} className="px-2 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 disabled:opacity-30">↓</button>
+                  </div>
+                  <button onClick={()=>removeMajorTodo(task.id)} className="text-rose-400 text-sm">Remove</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500 italic">No home major tasks yet.</p>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xs uppercase tracking-widest text-slate-500 font-semibold">All tab to-dos</h3>
+            <p className="text-xs text-slate-400">See checklist items from Baby and Travels in one place.</p>
+          </div>
+          <span className="text-xs text-slate-500">{tabTodos.length} items</span>
+        </div>
+        {tabTodos.length>0 ? (
+          <div className="space-y-2">
+            {tabTodos.map((item)=>{
+              const badgeClass=sourceClasses[item.kind]||sourceClasses.trip;
+              return(
+                <button key={`${item.kind}-${item.id}-${item.source}`} onClick={()=>toggleTodo(item)} className={`w-full text-left rounded-2xl border px-3 py-3 flex items-start gap-3 ${item.done?"border-slate-800 bg-slate-900/50 opacity-70":"border-slate-700/60 bg-slate-800/30 hover:border-slate-500"}`}>
+                  <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${item.done?"bg-emerald-500 border-emerald-500":"border-slate-500"}`}>
+                    {item.done&&<svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm ${item.done?"line-through text-slate-500":"text-slate-200"}`}>{item.text}</p>
+                    <div className="mt-2 flex flex-wrap gap-2 items-center text-[11px] font-semibold">
+                      <span className={`${badgeClass} px-2 py-0.5 rounded-full`}>{item.source}</span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500 italic">No tasks coming in from tabs yet.</p>
+        )}
       </div>
 
       {/* Top 3 Priorities — NO habits badge */}
@@ -822,9 +1152,13 @@ function GardeningTab({data,onUpdate}){
   );
 }
 
-function TravelsTab({tripTodos,tripDates,tripPacking,onTodosUpdate,onDatesUpdate,onPackingUpdate}){
+function TravelsTab({tripTodos,tripDates,tripPacking,standardPackingList,onTodosUpdate,onDatesUpdate,onPackingUpdate,onStandardPackingUpdate}){
   const [open,setOpen]=useState(-1);
+  const [newStandardItem,setNewStandardItem]=useState("");
+  const [newTripTodo,setNewTripTodo]=useState({});
   const tog=(ti,id)=>onTodosUpdate(tripTodos.map((arr,i)=>i===ti?arr.map(t=>t.id===id?{...t,done:!t.done}:t):arr));
+
+  const addTripTodo=(ti,txt)=>{const text=(txt||"").trim();if(!text)return; const nd=[...tripTodos]; nd[ti]=[...(nd[ti]||[]),{id:Date.now(),text,done:false}]; onTodosUpdate(nd); setNewTripTodo(prev=>({...prev,[ti]:""}));};
 
   const max = Math.max(TRIPS.length, tripDates.length);
   const merged = Array.from({length:max}).map((_,i)=>{
@@ -841,12 +1175,61 @@ function TravelsTab({tripTodos,tripDates,tripPacking,onTodosUpdate,onDatesUpdate
   const removeTrip=ti=>{onDatesUpdate(tripDates.filter((_,i)=>i!==ti)); onPackingUpdate(tripPacking.filter((_,i)=>i!==ti)); onTodosUpdate(tripTodos.filter((_,i)=>i!==ti)); setOpen(-1);};
   const addTrip=()=>{onDatesUpdate([...tripDates,{name:`New Trip`,start:"",end:""}]); onPackingUpdate([...tripPacking,[]]); onTodosUpdate([...tripTodos,[]]); setOpen(Math.max(0,tripDates.length));};
 
+  const addStandardItem=()=>{
+    const text=newStandardItem.trim();
+    if(!text) return;
+    onStandardPackingUpdate([...standardPackingList,text]);
+    setNewStandardItem("");
+  };
+
+  const removeStandardItem=index=>{
+    onStandardPackingUpdate(standardPackingList.filter((_,i)=>i!==index));
+  };
+
+  const addStandardPackingToTrip=ti=>{
+    if(!standardPackingList.length) return;
+    const nd=[...tripPacking];
+    nd[ti]=[...(nd[ti]||[]),...standardPackingList.map((text,i)=>({id:`${ti}-${Date.now()}-${i}`,text,checked:false}))];
+    onPackingUpdate(nd);
+  };
+
   return(
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs uppercase tracking-widest text-slate-500 font-semibold">Trips</h3>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-xs uppercase tracking-widest text-slate-500 font-semibold">Trips</h3>
+          <p className="text-xs text-slate-500">Manage trip dates, packing, and reusable standard packing items.</p>
+        </div>
         <div className="flex gap-2"><button onClick={addTrip} className="px-3 py-1.5 bg-sky-700/20 hover:bg-sky-700/30 border border-sky-600/30 text-sky-300 rounded-xl text-xs">+ Add Trip</button></div>
       </div>
+
+      <div className="rounded-2xl border border-slate-700 p-4 bg-slate-900/50">
+        <div className="flex items-center justify-between mb-3 gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-slate-500 font-semibold">Standard packing list</p>
+            <p className="text-xs text-slate-400">Add reusable items once, then push them into any trip.</p>
+          </div>
+        </div>
+        <div className="space-y-3">
+          {standardPackingList.length > 0 ? (
+            <div className="space-y-2">
+              {standardPackingList.map((item,index)=>(
+                <div key={`${item}-${index}`} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/30">
+                  <span className="flex-1 text-sm text-slate-200">{item}</span>
+                  <button onClick={()=>removeStandardItem(index)} className="text-rose-400 text-sm">Remove</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">No standard packing items yet. Add a reusable list here.</p>
+          )}
+          <div className="flex gap-2">
+            <input value={newStandardItem} onChange={e=>setNewStandardItem(e.target.value)} placeholder="Add standard packing item…" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none" />
+            <button onClick={addStandardItem} className="px-3 py-2 bg-lime-500/20 hover:bg-lime-500/30 border border-lime-500/40 text-lime-300 rounded-xl text-xs">Add</button>
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-3">
         {merged.map((trip,ti)=>{
           const datesLabel = trip.start||trip.end?`${trip.start||""} → ${trip.end||""}`:trip.dates||"Dates not set";
@@ -874,7 +1257,13 @@ function TravelsTab({tripTodos,tripDates,tripPacking,onTodosUpdate,onDatesUpdate
                   </div>
 
                   <div>
-                    <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Packing list</p>
+                    <div className="flex items-center justify-between mb-2 gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-slate-500">Packing list</p>
+                        <p className="text-xs text-slate-400">Add custom items or import from your standard list.</p>
+                      </div>
+                      <button onClick={()=>addStandardPackingToTrip(ti)} disabled={!standardPackingList.length} className="text-xs px-3 py-1.5 bg-slate-700/30 border border-slate-700 rounded-xl text-slate-300 disabled:opacity-40">Add standard packing items</button>
+                    </div>
                     <div className="space-y-2">
                       {(tripPacking[ti]||[]).map(item=> (
                         <div key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/20">
@@ -890,6 +1279,10 @@ function TravelsTab({tripTodos,tripDates,tripPacking,onTodosUpdate,onDatesUpdate
                   <div>
                     <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">To Do</p>
                     <div className="space-y-1.5">{(tripTodos[ti]||[]).map(t=> <button key={t.id} onClick={()=>tog(ti,t.id)} className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-left ${t.done?"opacity-40 border-slate-800":"border-slate-700/60 bg-slate-800/30"}`}><span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${t.done?"bg-emerald-500 border-emerald-500":"border-slate-500"}`}>{t.done&&<svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}</span><span className={`text-xs ${t.done?"line-through text-slate-600":"text-slate-300"}`}>{t.text}</span></button>)}</div>
+                    <div className="flex gap-2 mt-3">
+                      <input value={newTripTodo[ti]||""} onChange={e=>setNewTripTodo(prev=>({...prev,[ti]:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addTripTodo(ti,newTripTodo[ti]||"")} placeholder="Add trip task…" className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none" />
+                      <button onClick={()=>addTripTodo(ti,newTripTodo[ti]||"")} className="px-3 py-2 bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 rounded-xl text-xs">Add</button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1014,16 +1407,16 @@ export default function App(){
         {activeTab==="dashboard"&&<DashboardTab appData={appData} onUpdate={update}/>}
         {activeTab==="calendar"&&<CalendarTab/>}
         {activeTab==="financials"&&<FinancialsTab investments={appData.investments} netWorth={appData.netWorth} assumptions={appData.financialAssumptions} onUpdate={v=>update("investments",v)} onUpdateField={update}/>}
-        {activeTab==="travels"&&<TravelsTab tripTodos={appData.tripTodos} tripDates={appData.tripDates} tripPacking={appData.tripPacking} onTodosUpdate={v=>update("tripTodos",v)} onDatesUpdate={v=>update("tripDates",v)} onPackingUpdate={v=>update("tripPacking",v)}/>}
+        {activeTab==="travels"&&<TravelsTab tripTodos={appData.tripTodos} tripDates={appData.tripDates} tripPacking={appData.tripPacking} standardPackingList={appData.standardPackingList} onTodosUpdate={v=>update("tripTodos",v)} onDatesUpdate={v=>update("tripDates",v)} onPackingUpdate={v=>update("tripPacking",v)} onStandardPackingUpdate={v=>update("standardPackingList",v)}/>}
         {activeTab==="plants"&&<PlantsTab data={appData.plants} gardenData={appData.gardenPlants} onUpdate={v=>update("plants",v)} onGardenUpdate={v=>update("gardenPlants",v)}/>}
-        {activeTab==="cooking"&&<MealsTab mealPlan={appData.mealPlan} onMealUpdate={v=>update("mealPlan",v)}/>} 
+        {activeTab==="cooking"&&<MealsTab mealPlan={appData.mealPlan} groceryList={appData.groceryList} onMealUpdate={v=>update("mealPlan",v)} onGroceryUpdate={v=>update("groceryList",v)}/>} 
         {activeTab==="grocery"&&<GroceryTab groceryList={appData.groceryList} onUpdate={v=>update("groceryList",v)}/>}
         {activeTab==="pregnancy"&&<PregnancyTab todos={appData.pregnancyTodos} buyList={appData.babyBuyList||BABY_BUY_LIST} onTodosUpdate={v=>update("pregnancyTodos",v)} onBuyUpdate={v=>update("babyBuyList",v)}/>}
 
 
 
-        {activeTab==="habits"&&<HabitsTab habits={appData.habits} habitLog={appData.habitLog} onHabitsUpdate={v=>update("habits",v)} onLogUpdate={v=>update("habitLog",v)}/>}
-        {activeTab==="sidejob"&&<GenericTab tabId="sidejob" items={appData.sidejobItems} notes={appData.sidejobNotes} onItemsUpdate={v=>update("sidejobItems",v)} onNotesUpdate={v=>update("sidejobNotes",v)}/>}
+
+
       </div>
     </div>
   );
