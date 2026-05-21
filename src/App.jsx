@@ -2,9 +2,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 
 const DRIVE_FILE_NAME = "my-life-workspace-data-v3.json";
 const GDRIVE_MCP = "https://drivemcp.googleapis.com/mcp/v1";
+const LOCAL_STORAGE_KEY = "daia-life-tracker-data";
 
 const TABS = [
   { id: "dashboard", label: "🏠 Today" },
+  { id: "routine", label: "📅 Routine" },
   { id: "calendar", label: "📆 Calendar" },
   { id: "financials", label: "💰 Finance" },
   { id: "travels", label: "✈️ Travels" },
@@ -12,7 +14,6 @@ const TABS = [
   { id: "cooking", label: "🍳 Meals" },
   { id: "pregnancy", label: "🤰 Baby" },
   { id: "gardening", label: "🌱 Garden" },
-  { id: "routine", label: "📅 Routine" },
   { id: "reading", label: "📚 Reading" },
   { id: "habits", label: "🎯 Habits" },
   { id: "sidejob", label: "💼 Side Job" },
@@ -341,6 +342,8 @@ async function callDriveMCP(msgs){
   const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,system:`Manage Google Drive JSON file "${DRIVE_FILE_NAME}". Return raw JSON when reading, "OK" when writing.`,messages:msgs,mcp_servers:[{type:"url",url:GDRIVE_MCP,name:"gdrive"}]})});
   return r.json();
 }
+function saveToLocal(data){try{localStorage.setItem(LOCAL_STORAGE_KEY,JSON.stringify(data));return true;}catch{return false;}}
+function loadFromLocal(){try{const text=localStorage.getItem(LOCAL_STORAGE_KEY);return text?JSON.parse(text):null;}catch{return null;}}
 async function loadFromDrive(){try{const d=await callDriveMCP([{role:"user",content:`Find "${DRIVE_FILE_NAME}" in Google Drive and return its full text as raw JSON. If not found say NOT_FOUND.`}]);const t=d.content.filter(b=>b.type==="text").map(b=>b.text).join("");if(t.includes("NOT_FOUND"))return null;const m=t.match(/\{[\s\S]*\}/);return m?JSON.parse(m[0]):null;}catch{return null;}}
 async function saveToDrive(data){try{const j=JSON.stringify({...data,plants:data.plants.map(p=>({...p,photo:null})),gardenPlants:data.gardenPlants.map(p=>({...p,photo:null}))},null,2);await callDriveMCP([{role:"user",content:`Save to "${DRIVE_FILE_NAME}" in Google Drive, overwrite if exists:\n\n${j}`}]);return true;}catch{return false;}}
 
@@ -1194,11 +1197,12 @@ export default function App(){
   const[loadStatus,setLoadStatus]=useState("loading");
   const saveTimeout=useRef(null);
 
-  useEffect(()=>{(async()=>{const saved=await loadFromDrive();if(saved)setAppData(prev=>({...prev,...saved}));setLoadStatus("ready");})();},[]);
+  useEffect(()=>{(async()=>{const local=loadFromLocal();if(local)setAppData(prev=>({...prev,...local}));const saved=await loadFromDrive();if(saved)setAppData(prev=>({...prev,...saved}));setLoadStatus("ready");})();},[]);
 
   const triggerSave=useCallback((newData)=>{
+    const savedLocally=saveToLocal(newData);
     clearTimeout(saveTimeout.current);setSaveStatus("saving");
-    saveTimeout.current=setTimeout(async()=>{const ok=await saveToDrive(newData);setSaveStatus(ok?"saved":"error");setTimeout(()=>setSaveStatus("idle"),3000);},1500);
+    saveTimeout.current=setTimeout(async()=>{const ok=await saveToDrive(newData);setSaveStatus(ok||savedLocally?"saved":"error");setTimeout(()=>setSaveStatus("idle"),3000);},1500);
   },[]);
 
   const update=useCallback((key,value)=>{setAppData(prev=>{const next={...prev,[key]:value};triggerSave(next);return next;});},[triggerSave]);
